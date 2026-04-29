@@ -20,9 +20,10 @@ dotenv.config();
 
 const app = express();
 const allowedOrigins = process.env.CLIENT_URL?.split(',').map((origin) => origin.trim()).filter(Boolean) || [];
+const localOriginPattern = /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/;
 
 function corsOrigin(origin, callback) {
-  if (!origin || allowedOrigins.includes(origin) || origin.endsWith('.vercel.app')) {
+  if (!origin || allowedOrigins.includes(origin) || (process.env.NODE_ENV !== 'production' && localOriginPattern.test(origin))) {
     callback(null, true);
     return;
   }

@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import DataTable from '../components/DataTable.jsx';
 import Modal from '../components/Modal.jsx';
 import api from '../services/api.js';
+import { apiErrorMessage } from '../utils/errors.js';
 import { formatDate } from '../utils/format.js';
 
 const emptyItem = { name: '', category: '', unit: '', quantity: 0, minThreshold: 0, expiryDate: '', supplier: '', location: '', departmentId: '' };
@@ -12,33 +13,48 @@ export default function Inventory({ user }) {
   const [departments, setDepartments] = useState([]);
   const [search, setSearch] = useState('');
   const [editing, setEditing] = useState(null);
+  const [error, setError] = useState('');
 
   async function load() {
-    const [itemsRes, deptRes] = await Promise.all([api.get('/inventory', { params: { search } }), api.get('/departments')]);
-    setData(itemsRes.data);
-    setDepartments(deptRes.data);
+    try {
+      const [itemsRes, deptRes] = await Promise.all([api.get('/inventory', { params: { search } }), api.get('/departments')]);
+      setData(itemsRes.data);
+      setDepartments(deptRes.data);
+      setError('');
+    } catch (err) {
+      setError(apiErrorMessage(err, 'Inventory could not be loaded.'));
+    }
   }
   useEffect(() => { load(); }, []);
 
   async function save(event) {
     event.preventDefault();
     const payload = Object.fromEntries(new FormData(event.currentTarget));
-    if (editing?._id) await api.put(`/inventory/${editing._id}`, payload);
-    else await api.post('/inventory', payload);
-    setEditing(null);
-    load();
+    try {
+      if (editing?._id) await api.put(`/inventory/${editing._id}`, payload);
+      else await api.post('/inventory', payload);
+      setEditing(null);
+      load();
+    } catch (err) {
+      setError(apiErrorMessage(err, 'Inventory item could not be saved.'));
+    }
   }
 
   async function remove(id) {
     if (confirm('Delete this inventory item?')) {
-      await api.delete(`/inventory/${id}`);
-      load();
+      try {
+        await api.delete(`/inventory/${id}`);
+        load();
+      } catch (err) {
+        setError(apiErrorMessage(err, 'Inventory item could not be deleted.'));
+      }
     }
   }
 
   const canEdit = user.role === 'admin';
   return (
     <div className="space-y-5">
+      {error && <div className="rounded-lg bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">{error}</div>}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="relative max-w-lg flex-1">
           <Search className="absolute left-3 top-2.5 text-slate-400" size={18} />

@@ -1,4 +1,4 @@
-import { createContext, useContext, useMemo, useState } from 'react';
+import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import api from '../services/api.js';
 
 const AuthContext = createContext(null);
@@ -21,6 +21,11 @@ export function AuthProvider({ children }) {
     setToken(null);
     setUser(null);
   }
+
+  useEffect(() => {
+    window.addEventListener('labos:unauthorized', logout);
+    return () => window.removeEventListener('labos:unauthorized', logout);
+  }, []);
 
   const value = useMemo(() => ({ user, token, login, logout, isAuthenticated: Boolean(token) }), [user, token]);
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

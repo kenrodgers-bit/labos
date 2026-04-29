@@ -14,7 +14,9 @@ export async function listUsers(req, res) {
 
 export async function createUser(req, res) {
   const user = await User.create(req.body);
-  await writeAudit({ action: 'user.created', userId: req.user._id, after: { ...user.toObject(), password: undefined }, req });
+  const after = user.toObject();
+  delete after.password;
+  await writeAudit({ action: 'user.created', userId: req.user._id, after, req });
   res.status(201).json(await User.findById(user._id).populate('departmentId'));
 }
 

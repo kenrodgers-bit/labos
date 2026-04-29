@@ -116,6 +116,8 @@ For a production LAN installation, build the frontend with `npm run build --pref
 - Set `VITE_API_URL` in Vercel to the Render API URL plus `/api`.
 - Set `CLIENT_URL` in Render to the Vercel frontend URL.
 
+For Vercel serverless API deployments, MongoDB Atlas must allow traffic from the deployment platform. For a controlled hospital deployment, prefer a backend host with static outbound IPs and allowlist only those IPs in Atlas. For a short demonstration, Atlas can temporarily allow `0.0.0.0/0`, then be tightened immediately after the demo.
+
 ## Environment Variables
 
 See `.env.example`.

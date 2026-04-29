@@ -1,6 +1,8 @@
-import { useState } from 'react';
-import { FlaskConical, Lock, Mail } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { CheckCircle2, FlaskConical, Lock, Mail, ServerCrash } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.jsx';
+import api from '../services/api.js';
+import { apiErrorMessage } from '../utils/errors.js';
 
 export default function Login() {
   const { login } = useAuth();
@@ -8,6 +10,17 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [apiStatus, setApiStatus] = useState('checking');
+
+  useEffect(() => {
+    let mounted = true;
+    api.get('/health')
+      .then(() => mounted && setApiStatus('online'))
+      .catch(() => mounted && setApiStatus('offline'));
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   async function submit(event) {
     event.preventDefault();
@@ -16,7 +29,7 @@ export default function Login() {
     try {
       await login(email, password);
     } catch (err) {
-      setError(err.response?.data?.message || 'Unable to sign in');
+      setError(apiErrorMessage(err, 'Unable to sign in. Please confirm the API and database are available.'));
     } finally {
       setLoading(false);
     }
@@ -47,6 +60,10 @@ export default function Login() {
         <form onSubmit={submit} className="panel w-full max-w-md p-6">
           <h2 className="text-2xl font-black text-clinic-ink">Secure sign in</h2>
           <p className="mt-1 text-sm text-slate-500">Use the account issued by the laboratory administrator.</p>
+          <div className={`mt-4 flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-bold ${apiStatus === 'online' ? 'bg-emerald-50 text-emerald-700' : apiStatus === 'offline' ? 'bg-rose-50 text-rose-700' : 'bg-slate-50 text-slate-500'}`}>
+            {apiStatus === 'online' ? <CheckCircle2 size={15} /> : <ServerCrash size={15} />}
+            {apiStatus === 'online' ? 'LabOS API online' : apiStatus === 'offline' ? 'LabOS API unavailable' : 'Checking LabOS API'}
+          </div>
           {error && <div className="mt-4 rounded-lg bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-700">{error}</div>}
           <label className="mt-5 block text-sm font-bold text-slate-700">Email</label>
           <div className="relative mt-2">

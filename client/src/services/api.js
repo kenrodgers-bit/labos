@@ -16,6 +16,7 @@ api.interceptors.response.use(
     if (error.response?.status === 401) {
       localStorage.removeItem('labos_token');
       localStorage.removeItem('labos_user');
+      window.dispatchEvent(new Event('labos:unauthorized'));
     }
     return Promise.reject(error);
   }
