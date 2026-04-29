@@ -37,7 +37,25 @@ const itemSeed = [
 
 async function seed() {
   await connectDB();
-  await Promise.all([AuditLog.deleteMany(), StockMovement.deleteMany(), Request.deleteMany(), InventoryItem.deleteMany(), User.deleteMany(), Department.deleteMany()]);
+  const force = process.argv.includes('--force');
+  const existingRecords = await Promise.all([
+    AuditLog.estimatedDocumentCount(),
+    StockMovement.estimatedDocumentCount(),
+    Request.estimatedDocumentCount(),
+    InventoryItem.estimatedDocumentCount(),
+    User.estimatedDocumentCount(),
+    Department.estimatedDocumentCount()
+  ]);
+
+  if (existingRecords.some((count) => count > 0) && !force) {
+    console.log('LabOS seed skipped because this database already has data. Run `npm run seed -- --force` to reset it.');
+    await mongoose.disconnect();
+    return;
+  }
+
+  if (force) {
+    await Promise.all([AuditLog.deleteMany(), StockMovement.deleteMany(), Request.deleteMany(), InventoryItem.deleteMany(), User.deleteMany(), Department.deleteMany()]);
+  }
 
   const departments = await Department.insertMany(departmentNames.map((name) => ({ name, description: `${name} laboratory section` })));
   const byName = Object.fromEntries(departments.map((department) => [department.name, department]));
