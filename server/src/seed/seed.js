@@ -53,6 +53,11 @@ async function seed() {
     return;
   }
 
+  const seedPassword = process.env.LABOS_SEED_PASSWORD;
+  if (!seedPassword || seedPassword.length < 12) {
+    throw new Error('Set LABOS_SEED_PASSWORD to a facility-controlled password of at least 12 characters before seeding.');
+  }
+
   if (force) {
     await Promise.all([AuditLog.deleteMany(), StockMovement.deleteMany(), Request.deleteMany(), InventoryItem.deleteMany(), User.deleteMany(), Department.deleteMany()]);
   }
@@ -61,11 +66,11 @@ async function seed() {
   const byName = Object.fromEntries(departments.map((department) => [department.name, department]));
 
   const users = await User.create([
-    { name: 'Amina Otieno', email: 'admin@labos.local', password: 'LabOS@12345', role: ROLES.ADMIN, departmentId: byName.Haematology._id },
-    { name: 'Peter Mwangi', email: 'manager@labos.local', password: 'LabOS@12345', role: ROLES.MANAGER, departmentId: byName.Biochemistry._id },
-    { name: 'Grace Wanjiku', email: 'haem.staff@labos.local', password: 'LabOS@12345', role: ROLES.STAFF, departmentId: byName.Haematology._id },
-    { name: 'Brian Kiptoo', email: 'micro.staff@labos.local', password: 'LabOS@12345', role: ROLES.STAFF, departmentId: byName.Microbiology._id },
-    { name: 'Linet Achieng', email: 'phleb.staff@labos.local', password: 'LabOS@12345', role: ROLES.STAFF, departmentId: byName.Phlebotomy._id }
+    { name: 'Amina Otieno', email: 'admin@labos.local', password: seedPassword, role: ROLES.ADMIN, departmentId: byName.Haematology._id },
+    { name: 'Peter Mwangi', email: 'manager@labos.local', password: seedPassword, role: ROLES.MANAGER, departmentId: byName.Biochemistry._id },
+    { name: 'Grace Wanjiku', email: 'haem.staff@labos.local', password: seedPassword, role: ROLES.STAFF, departmentId: byName.Haematology._id },
+    { name: 'Brian Kiptoo', email: 'micro.staff@labos.local', password: seedPassword, role: ROLES.STAFF, departmentId: byName.Microbiology._id },
+    { name: 'Linet Achieng', email: 'phleb.staff@labos.local', password: seedPassword, role: ROLES.STAFF, departmentId: byName.Phlebotomy._id }
   ]);
 
   const items = await InventoryItem.insertMany(itemSeed.map((item, index) => ({
@@ -97,12 +102,7 @@ async function seed() {
   ]);
 
   await AuditLog.create({ action: 'system.seeded', userId: users[0]._id, after: { departments: departments.length, users: users.length, items: items.length, requests: requests.length } });
-  console.log('LabOS seed complete');
-  console.table([
-    { role: 'Admin', email: 'admin@labos.local', password: 'LabOS@12345' },
-    { role: 'Commodity Manager', email: 'manager@labos.local', password: 'LabOS@12345' },
-    { role: 'Lab Staff', email: 'haem.staff@labos.local', password: 'LabOS@12345' }
-  ]);
+  console.log('LabOS seed complete. Seeded users were created with the facility-controlled LABOS_SEED_PASSWORD.');
   await mongoose.disconnect();
 }
 

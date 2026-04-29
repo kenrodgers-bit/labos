@@ -1,6 +1,7 @@
 import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
 import { writeAudit } from '../utils/audit.js';
+import { ROLES } from '../utils/permissions.js';
 
 function signToken(user) {
   return jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET, { expiresIn: process.env.JWT_EXPIRES_IN || '8h' });
@@ -13,12 +14,17 @@ function publicUser(user) {
 }
 
 export async function register(req, res) {
+  const userCount = await User.estimatedDocumentCount();
+  if (userCount > 0) {
+    return res.status(403).json({ message: 'Public registration is disabled. Ask an administrator to create staff accounts.' });
+  }
+
   const user = await User.create({
     name: req.body.name,
     email: req.body.email,
     password: req.body.password,
     departmentId: req.body.departmentId,
-    role: 'lab_staff'
+    role: ROLES.ADMIN
   });
   await writeAudit({ action: 'user.registered', userId: user._id, after: publicUser(user), req });
   res.status(201).json({ token: signToken(user), user: publicUser(user) });

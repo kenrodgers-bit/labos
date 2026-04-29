@@ -1,6 +1,6 @@
 # LabOS
 
-LabOS is a production-oriented Hospital Laboratory Inventory Management System for Kenyan hospital and clinic demonstrations. It includes JWT authentication, role-based access, inventory control, partial approval workflows, audit logs, reporting, PDF/Excel exports, MOH 706-style monthly summaries, and PWA installation support.
+LabOS is a production-oriented Hospital Laboratory Inventory Management System for Kenyan hospitals and clinics. It includes JWT authentication, role-based access, inventory control, partial approval workflows, audit logs, reporting, PDF/Excel exports, MOH 706-style monthly summaries, and PWA installation support.
 
 ## Stack
 
@@ -26,9 +26,10 @@ LabOS is a production-oriented Hospital Laboratory Inventory Management System f
 
 3. Start MongoDB locally or set `MONGO_URI` to MongoDB Atlas in `server/.env`.
 
-4. Seed demo data:
+4. Seed starter data with a facility-controlled password:
 
-   ```bash
+   ```powershell
+   $env:LABOS_SEED_PASSWORD="<set-a-strong-temporary-password>"
    npm run seed
    ```
 
@@ -42,14 +43,6 @@ LabOS is a production-oriented Hospital Laboratory Inventory Management System f
 
    - Frontend: http://localhost:5173
    - Backend health: http://localhost:5000/api/health
-
-## Demo Accounts
-
-All seeded accounts use password `LabOS@12345`.
-
-- Admin: `admin@labos.local`
-- Commodity Manager: `manager@labos.local`
-- Lab Staff: `haem.staff@labos.local`
 
 ## Role Capabilities
 
@@ -72,7 +65,7 @@ The Reports screen exports:
 - Audit logs
 - MOH 706 monthly laboratory summary
 
-PDF exports open directly from the browser. Excel exports are `.xlsx` downloads.
+PDF exports and Excel exports are downloaded through authenticated API requests.
 
 ## LAN Deployment Guide
 
@@ -92,6 +85,7 @@ Use one PC as the LabOS server on the facility network.
    MONGO_URI=mongodb://127.0.0.1:27017/labos
    CLIENT_URL=http://SERVER_IP:5173
    JWT_SECRET=replace-with-long-secret
+   LABOS_SEED_PASSWORD=replace-with-temporary-facility-password
    ```
 
 4. In `client/.env`, set:
@@ -131,5 +125,6 @@ Important production notes:
 - Use a long random `JWT_SECRET`.
 - Use HTTPS for cloud deployment.
 - Restrict CORS to known client URLs.
-- Keep seeded demo credentials out of a real deployment.
+- Do not publish or display seeded account credentials.
+- Rotate bootstrap passwords before real hospital use.
 - Create individual staff accounts through the Admin Staff screen.

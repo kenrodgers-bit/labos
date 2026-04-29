@@ -19,13 +19,17 @@ export async function createUser(req, res) {
 }
 
 export async function updateUser(req, res) {
-  const before = await User.findById(req.params.id);
-  if (!before) return res.status(404).json({ message: 'User not found' });
+  const user = await User.findById(req.params.id);
+  if (!user) return res.status(404).json({ message: 'User not found' });
+  const before = user.toObject();
   const updates = { ...req.body };
   if (!updates.password) delete updates.password;
-  Object.assign(before, updates);
-  await before.save();
-  await writeAudit({ action: 'user.updated', userId: req.user._id, before, after: before, req });
+  Object.assign(user, updates);
+  await user.save();
+  const after = user.toObject();
+  delete before.password;
+  delete after.password;
+  await writeAudit({ action: 'user.updated', userId: req.user._id, before, after, req });
   res.json(await User.findById(req.params.id).populate('departmentId'));
 }
 

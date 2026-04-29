@@ -1,11 +1,12 @@
 import express from 'express';
 import AuditLog from '../models/AuditLog.js';
+import { asyncHandler } from '../middleware/asyncHandler.js';
 import { authorize, protect } from '../middleware/auth.js';
 import { ROLES } from '../utils/permissions.js';
 
 const router = express.Router();
 router.use(protect, authorize(ROLES.ADMIN, ROLES.MANAGER));
-router.get('/', async (req, res) => {
+router.get('/', asyncHandler(async (req, res) => {
   const { search = '', action, from, to } = req.query;
   const query = {
     ...(action ? { action } : {}),
@@ -16,6 +17,6 @@ router.get('/', async (req, res) => {
     ? logs.filter((log) => JSON.stringify(log).toLowerCase().includes(search.toLowerCase()))
     : logs;
   res.json(filtered);
-});
+}));
 
 export default router;

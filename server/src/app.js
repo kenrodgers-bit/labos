@@ -5,6 +5,7 @@ import rateLimit from 'express-rate-limit';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import { dashboard } from './controllers/dashboardController.js';
+import { asyncHandler } from './middleware/asyncHandler.js';
 import { protect } from './middleware/auth.js';
 import { errorHandler, notFound } from './middleware/error.js';
 import auditRoutes from './routes/auditRoutes.js';
@@ -35,7 +36,7 @@ app.use(rateLimit({ windowMs: 15 * 60 * 1000, max: 600 }));
 app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
 
 app.get('/api/health', (req, res) => res.json({ status: 'ok', service: 'LabOS API' }));
-app.get('/api/dashboard', protect, dashboard);
+app.get('/api/dashboard', protect, asyncHandler(dashboard));
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/departments', departmentRoutes);

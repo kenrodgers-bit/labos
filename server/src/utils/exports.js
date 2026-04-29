@@ -1,6 +1,8 @@
 import { jsPDF } from 'jspdf';
-import autoTable from 'jspdf-autotable';
+import autoTableModule from 'jspdf-autotable';
 import XLSX from 'xlsx';
+
+const autoTable = autoTableModule.default || autoTableModule;
 
 export function sendExcel(res, filename, rows) {
   const workbook = XLSX.utils.book_new();

@@ -22,7 +22,3 @@ api.interceptors.response.use(
 );
 
 export default api;
-
-export function exportUrl(path, format = 'pdf') {
-  return `${API_URL}${path}?format=${format}`;
-}
