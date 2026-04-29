@@ -19,6 +19,8 @@ import userRoutes from './routes/userRoutes.js';
 dotenv.config();
 
 const app = express();
+app.set('trust proxy', 1);
+
 const allowedOrigins = process.env.CLIENT_URL?.split(',').map((origin) => origin.trim()).filter(Boolean) || [];
 const localOriginPattern = /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/;
 
