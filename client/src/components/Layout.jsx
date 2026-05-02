@@ -3,6 +3,7 @@ import { Bell, Boxes, Building2, ClipboardCheck, FileText, LayoutDashboard, LogO
 import { useState } from 'react';
 import { useAuth } from '../context/AuthContext.jsx';
 import { roleLabel } from '../utils/format.js';
+import LabOSAssist from './LabOSAssist.jsx';
 
 const nav = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -51,7 +52,7 @@ export default function Layout({ active, setActive, alerts, children }) {
       </nav>
       <div className="border-t border-slate-100 p-4">
         <p className="text-sm font-bold text-slate-900">{user.name}</p>
-        <p className="text-xs text-slate-500">{roleLabel(user.role)} · {user.departmentId?.name || 'Central'}</p>
+        <p className="text-xs text-slate-500">{roleLabel(user.role)} | {user.departmentId?.name || 'Central'}</p>
         <button onClick={logout} className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg bg-slate-100 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-200">
           <LogOut size={16} /> Sign out
         </button>
@@ -88,6 +89,7 @@ export default function Layout({ active, setActive, alerts, children }) {
           {children}
         </motion.div>
       </main>
+      <LabOSAssist />
     </div>
   );
 }

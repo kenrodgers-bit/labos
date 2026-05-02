@@ -91,6 +91,31 @@ The Reports screen exports:
 
 PDF and Excel exports are downloaded through authenticated API requests.
 
+## LabOS Assist
+
+LabOS Assist is a built-in, authenticated help assistant inside the web app. It appears as a floating chat button for signed-in users and gives short, role-aware guidance for Admins, Commodity Managers, and Lab Staff.
+
+It can help with:
+
+- Profile and password settings
+- Staff management guidance for Admins
+- Inventory, stock alerts, expiry alerts, and stock movement
+- Request submission and approval workflows
+- Partial approvals and adjustment reasons
+- Audit logs and reports
+- MOH 706 monthly summaries
+- LAN deployment troubleshooting
+
+Security limitations:
+
+- LabOS Assist is help-only and read-only.
+- It does not modify database records.
+- It does not store chat history in MongoDB.
+- It does not reveal passwords, demo credentials, JWT tokens, environment variables, database URLs, password hashes, or private server configuration.
+- It answers only LabOS hospital inventory usage questions.
+
+Future expansion can connect LabOS Assist to database-aware summaries, but keep permission checks server-side and redact sensitive fields before any generated answer.
+
 ## LAN Deployment Guide
 
 Use one PC as the LabOS server on the facility network.

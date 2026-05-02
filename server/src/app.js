@@ -9,6 +9,7 @@ import { asyncHandler } from './middleware/asyncHandler.js';
 import { protect } from './middleware/auth.js';
 import { errorHandler, notFound } from './middleware/error.js';
 import auditRoutes from './routes/auditRoutes.js';
+import assistantRoutes from './routes/assistantRoutes.js';
 import authRoutes from './routes/authRoutes.js';
 import departmentRoutes from './routes/departmentRoutes.js';
 import inventoryRoutes from './routes/inventoryRoutes.js';
@@ -42,6 +43,7 @@ app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
 
 app.get('/api/health', (req, res) => res.json({ status: 'ok', service: 'LabOS API' }));
 app.get('/api/dashboard', protect, asyncHandler(dashboard));
+app.use('/api/assistant', assistantRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/departments', departmentRoutes);
