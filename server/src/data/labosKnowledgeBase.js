@@ -70,7 +70,7 @@ export const knowledgeBase = [
   {
     id: 'inventory',
     title: 'Inventory management',
-    keywords: ['inventory', 'item', 'add item', 'edit item', 'deactivate item', 'category', 'supplier', 'location', 'quantity', 'stock'],
+    keywords: ['inventory', 'item', 'add item', 'edit item', 'deactivate item', 'category', 'supplier', 'location', 'stock'],
     roles: Object.values(ROLES),
     reply: 'Use Inventory to search items, filter by department/category/status, and view quantity, expiry, supplier, and location. Admins can add, edit, and deactivate items. Deactivated items stay in reports and audit logs.',
     suggestions: ['How do low stock alerts work?', 'How do I request an item?']
@@ -102,7 +102,7 @@ export const knowledgeBase = [
   {
     id: 'partial-approval',
     title: 'Partial approval logic',
-    keywords: ['partial', 'adjust', 'approved quantity', 'reduced', 'quantity reduced', 'adjustment reason'],
+    keywords: ['partial', 'partial approval', 'partial quantity', 'approve partial quantity', 'adjust', 'approved quantity', 'reduced', 'quantity reduced', 'adjustment reason'],
     roles: Object.values(ROLES),
     reply: 'Partial approval means the approver issued less than the requested quantity. LabOS stores requested quantity, approved quantity, adjustment reason, approver, and timestamp for audit review.',
     suggestions: ['Why do I need an adjustment reason?', 'How do audit logs work?']
