@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
-import { KeyRound, Save, UserRound } from 'lucide-react';
+import { KeyRound, LogOut, Save, Settings as SettingsIcon, UserRound } from 'lucide-react';
+import LoadingSpinner from '../components/LoadingSpinner.jsx';
+import { useToast } from '../components/ToastProvider.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
 import api from '../services/api.js';
 import { apiErrorMessage } from '../utils/errors.js';
@@ -11,30 +13,65 @@ const emptyPasswordForm = {
   confirmPassword: ''
 };
 
+const emptySettings = {
+  hospitalName: '',
+  facilityCode: '',
+  county: '',
+  subCounty: '',
+  contactEmail: '',
+  contactPhone: '',
+  logoUrl: '',
+  lowStockAlertMode: 'threshold'
+};
+
 export default function Settings() {
-  const { user, updateUser } = useAuth();
-  const [name, setName] = useState(user.name);
-  const [profileStatus, setProfileStatus] = useState({ type: '', message: '' });
-  const [passwordStatus, setPasswordStatus] = useState({ type: '', message: '' });
+  const { user, updateUser, logout } = useAuth();
+  const toast = useToast();
+  const [profile, setProfile] = useState({ name: user.name, email: user.email });
   const [passwordForm, setPasswordForm] = useState(emptyPasswordForm);
+  const [systemSettings, setSystemSettings] = useState(emptySettings);
+  const [loadingSettings, setLoadingSettings] = useState(false);
   const [savingProfile, setSavingProfile] = useState(false);
   const [savingPassword, setSavingPassword] = useState(false);
+  const [savingSettings, setSavingSettings] = useState(false);
+  const [error, setError] = useState('');
   const isAdmin = user.role === 'admin';
 
   useEffect(() => {
-    setName(user.name);
-  }, [user.name]);
+    setProfile({ name: user.name, email: user.email });
+  }, [user.name, user.email]);
+
+  useEffect(() => {
+    let mounted = true;
+    async function loadSettings() {
+      setLoadingSettings(true);
+      try {
+        const { data } = await api.get('/system-settings');
+        if (mounted) setSystemSettings({ ...emptySettings, ...data });
+      } catch (err) {
+        if (mounted) setError(apiErrorMessage(err, 'System settings could not be loaded.'));
+      } finally {
+        if (mounted) setLoadingSettings(false);
+      }
+    }
+    loadSettings();
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   async function submitProfile(event) {
     event.preventDefault();
-    setProfileStatus({ type: '', message: '' });
+    setError('');
     setSavingProfile(true);
     try {
-      const { data } = await api.patch('/auth/me/profile', { name });
+      const payload = { name: profile.name };
+      if (isAdmin) payload.email = profile.email;
+      const { data } = await api.patch('/auth/me/profile', payload);
       updateUser(data.user);
-      setProfileStatus({ type: 'success', message: 'Name updated successfully.' });
-    } catch (error) {
-      setProfileStatus({ type: 'error', message: apiErrorMessage(error, 'Name could not be updated.') });
+      toast?.pushToast('Profile updated.');
+    } catch (err) {
+      setError(apiErrorMessage(err, 'Profile could not be updated.'));
     } finally {
       setSavingProfile(false);
     }
@@ -42,9 +79,9 @@ export default function Settings() {
 
   async function submitPassword(event) {
     event.preventDefault();
-    setPasswordStatus({ type: '', message: '' });
+    setError('');
     if (passwordForm.newPassword !== passwordForm.confirmPassword) {
-      setPasswordStatus({ type: 'error', message: 'New password and confirmation do not match.' });
+      setError('New password and confirmation do not match.');
       return;
     }
 
@@ -55,11 +92,26 @@ export default function Settings() {
         newPassword: passwordForm.newPassword
       });
       setPasswordForm(emptyPasswordForm);
-      setPasswordStatus({ type: 'success', message: 'Password changed successfully.' });
-    } catch (error) {
-      setPasswordStatus({ type: 'error', message: apiErrorMessage(error, 'Password could not be changed.') });
+      toast?.pushToast('Password changed.');
+    } catch (err) {
+      setError(apiErrorMessage(err, 'Password could not be changed.'));
     } finally {
       setSavingPassword(false);
+    }
+  }
+
+  async function submitSystemSettings(event) {
+    event.preventDefault();
+    setError('');
+    setSavingSettings(true);
+    try {
+      const { data } = await api.put('/system-settings', systemSettings);
+      setSystemSettings({ ...emptySettings, ...data });
+      toast?.pushToast('System settings updated.');
+    } catch (err) {
+      setError(apiErrorMessage(err, 'System settings could not be saved.'));
+    } finally {
+      setSavingSettings(false);
     }
   }
 
@@ -67,102 +119,104 @@ export default function Settings() {
     setPasswordForm((current) => ({ ...current, [field]: value }));
   }
 
+  function updateSystemField(field, value) {
+    setSystemSettings((current) => ({ ...current, [field]: value }));
+  }
+
   return (
-    <div className="grid gap-5 xl:grid-cols-[0.95fr_1.05fr]">
-      <section className="panel p-5">
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-teal-50 text-clinic-teal">
-            <UserRound size={20} />
-          </div>
-          <h2 className="text-lg font-black text-clinic-ink">Profile</h2>
-        </div>
+    <div className="space-y-5">
+      {error && <div className="rounded-lg bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">{error}</div>}
 
-        <dl className="mt-5 space-y-3 text-sm">
-          <div className="flex justify-between gap-4"><dt className="font-bold text-slate-500">Name</dt><dd className="text-right font-semibold text-slate-800">{user.name}</dd></div>
-          <div className="flex justify-between gap-4"><dt className="font-bold text-slate-500">Email</dt><dd className="text-right text-slate-700">{user.email}</dd></div>
-          <div className="flex justify-between gap-4"><dt className="font-bold text-slate-500">Role</dt><dd className="text-right text-slate-700">{roleLabel(user.role)}</dd></div>
-          <div className="flex justify-between gap-4"><dt className="font-bold text-slate-500">Department</dt><dd className="text-right text-slate-700">{user.departmentId?.name || 'Central Store'}</dd></div>
-        </dl>
-
-        {isAdmin && (
-          <form onSubmit={submitProfile} className="mt-6 border-t border-slate-100 pt-5">
-            <label className="block text-sm font-bold text-slate-700">Display name</label>
-            <input
-              className="input mt-2"
-              value={name}
-              onChange={(event) => setName(event.target.value)}
-              minLength={2}
-              maxLength={80}
-              required
-            />
-            {profileStatus.message && (
-              <div className={`mt-3 rounded-lg px-3 py-2 text-sm font-semibold ${profileStatus.type === 'success' ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'}`}>
-                {profileStatus.message}
-              </div>
-            )}
-            <button className="btn-primary mt-4 w-full sm:w-auto" disabled={savingProfile || name.trim() === user.name}>
-              <Save size={16} /> {savingProfile ? 'Saving...' : 'Save name'}
-            </button>
-          </form>
-        )}
-      </section>
-
-      <section className="panel p-5">
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-50 text-clinic-blue">
-            <KeyRound size={20} />
-          </div>
-          <h2 className="text-lg font-black text-clinic-ink">Password</h2>
-        </div>
-
-        <form onSubmit={submitPassword} className="mt-5 grid gap-4 sm:grid-cols-2">
-          <label className="block text-sm font-bold text-slate-700 sm:col-span-2">
-            Current password
-            <input
-              className="input mt-2"
-              type="password"
-              autoComplete="current-password"
-              value={passwordForm.currentPassword}
-              onChange={(event) => updatePasswordField('currentPassword', event.target.value)}
-              required
-            />
-          </label>
-          <label className="block text-sm font-bold text-slate-700">
-            New password
-            <input
-              className="input mt-2"
-              type="password"
-              autoComplete="new-password"
-              minLength={8}
-              value={passwordForm.newPassword}
-              onChange={(event) => updatePasswordField('newPassword', event.target.value)}
-              required
-            />
-          </label>
-          <label className="block text-sm font-bold text-slate-700">
-            Confirm password
-            <input
-              className="input mt-2"
-              type="password"
-              autoComplete="new-password"
-              minLength={8}
-              value={passwordForm.confirmPassword}
-              onChange={(event) => updatePasswordField('confirmPassword', event.target.value)}
-              required
-            />
-          </label>
-          {passwordStatus.message && (
-            <div className={`rounded-lg px-3 py-2 text-sm font-semibold sm:col-span-2 ${passwordStatus.type === 'success' ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'}`}>
-              {passwordStatus.message}
+      <div className="grid gap-5 xl:grid-cols-[0.95fr_1.05fr]">
+        <section className="panel p-5">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-teal-50 text-clinic-teal">
+              <UserRound size={20} />
             </div>
-          )}
-          <div className="sm:col-span-2">
-            <button className="btn-primary w-full sm:w-auto" disabled={savingPassword}>
-              <KeyRound size={16} /> {savingPassword ? 'Changing...' : 'Change password'}
-            </button>
+            <h2 className="text-lg font-black text-clinic-ink">Profile</h2>
           </div>
-        </form>
-      </section>
+
+          <dl className="mt-5 space-y-3 text-sm">
+            <div className="flex justify-between gap-4"><dt className="font-bold text-slate-500">Role</dt><dd className="text-right text-slate-700">{roleLabel(user.role)}</dd></div>
+            <div className="flex justify-between gap-4"><dt className="font-bold text-slate-500">Department</dt><dd className="text-right text-slate-700">{user.departmentId?.name || 'Central Store'}</dd></div>
+          </dl>
+
+          <form onSubmit={submitProfile} className="mt-6 border-t border-slate-100 pt-5">
+            <label className="block text-sm font-bold text-slate-700">Full name</label>
+            <input className="input mt-2" value={profile.name} onChange={(event) => setProfile((current) => ({ ...current, name: event.target.value }))} minLength={2} maxLength={80} required />
+
+            <label className="mt-4 block text-sm font-bold text-slate-700">Email</label>
+            <input className="input mt-2" type="email" value={profile.email} onChange={(event) => setProfile((current) => ({ ...current, email: event.target.value }))} disabled={!isAdmin} required />
+            {!isAdmin && <p className="mt-2 text-xs font-semibold text-slate-500">Ask an administrator to change account email addresses.</p>}
+
+            <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+              <button className="btn-primary" disabled={savingProfile}><Save size={16} /> {savingProfile ? 'Saving...' : 'Save profile'}</button>
+              <button type="button" className="btn-secondary" onClick={logout}><LogOut size={16} /> Sign out</button>
+            </div>
+          </form>
+        </section>
+
+        <section className="panel p-5">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-50 text-clinic-blue">
+              <KeyRound size={20} />
+            </div>
+            <h2 className="text-lg font-black text-clinic-ink">Password</h2>
+          </div>
+
+          <form onSubmit={submitPassword} className="mt-5 grid gap-4 sm:grid-cols-2">
+            <label className="block text-sm font-bold text-slate-700 sm:col-span-2">Current password
+              <input className="input mt-2" type="password" autoComplete="current-password" value={passwordForm.currentPassword} onChange={(event) => updatePasswordField('currentPassword', event.target.value)} required />
+            </label>
+            <label className="block text-sm font-bold text-slate-700">New password
+              <input className="input mt-2" type="password" autoComplete="new-password" minLength={8} value={passwordForm.newPassword} onChange={(event) => updatePasswordField('newPassword', event.target.value)} required />
+            </label>
+            <label className="block text-sm font-bold text-slate-700">Confirm password
+              <input className="input mt-2" type="password" autoComplete="new-password" minLength={8} value={passwordForm.confirmPassword} onChange={(event) => updatePasswordField('confirmPassword', event.target.value)} required />
+            </label>
+            <div className="sm:col-span-2">
+              <button className="btn-primary w-full sm:w-auto" disabled={savingPassword}><KeyRound size={16} /> {savingPassword ? 'Changing...' : 'Change password'}</button>
+            </div>
+          </form>
+        </section>
+      </div>
+
+      {isAdmin && (
+        <section className="panel p-5">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-100 text-slate-600">
+              <SettingsIcon size={20} />
+            </div>
+            <h2 className="text-lg font-black text-clinic-ink">System settings</h2>
+          </div>
+          {loadingSettings ? <LoadingSpinner label="Loading system settings" /> : (
+            <form onSubmit={submitSystemSettings} className="mt-5 grid gap-4 md:grid-cols-2">
+              {[
+                ['hospitalName', 'Hospital name'],
+                ['facilityCode', 'Facility code'],
+                ['county', 'County'],
+                ['subCounty', 'Sub-county'],
+                ['contactEmail', 'Contact email'],
+                ['contactPhone', 'Contact phone'],
+                ['logoUrl', 'Logo URL']
+              ].map(([field, label]) => (
+                <label key={field} className="block text-sm font-bold text-slate-700">{label}
+                  <input className="input mt-2" type={field === 'contactEmail' ? 'email' : 'text'} value={systemSettings[field] || ''} onChange={(event) => updateSystemField(field, event.target.value)} />
+                </label>
+              ))}
+              <label className="block text-sm font-bold text-slate-700">Low stock alert behavior
+                <select className="input mt-2" value={systemSettings.lowStockAlertMode} onChange={(event) => updateSystemField('lowStockAlertMode', event.target.value)}>
+                  <option value="threshold">Threshold only</option>
+                  <option value="threshold_or_zero">Threshold and zero stock</option>
+                </select>
+              </label>
+              <div className="md:col-span-2">
+                <button className="btn-primary" disabled={savingSettings}><Save size={16} /> {savingSettings ? 'Saving...' : 'Save system settings'}</button>
+              </div>
+            </form>
+          )}
+        </section>
+      )}
     </div>
   );
 }

@@ -4,9 +4,11 @@ import api from '../services/api.js';
 
 const reports = [
   ['Inventory report', '/reports/inventory', 'labos-inventory-report', 'Current stock, thresholds, expiry, suppliers, and locations.'],
+  ['Low stock report', '/reports/low-stock', 'labos-low-stock-report', 'Items at or below configured minimum thresholds.'],
+  ['Expiry report', '/reports/expiry', 'labos-expiry-report', 'Expired and soon-expiring laboratory commodities.'],
   ['Request report', '/reports/requests', 'labos-request-report', 'Requested, approved, rejected, and partial approval history.'],
   ['Usage report', '/reports/usage', 'labos-usage-report', 'Stock in, stock out, and adjustment movement register.'],
-  ['Department report', '/reports/usage', 'labos-department-usage-report', 'Department-level commodity usage for internal review.'],
+  ['Department usage report', '/reports/department-usage', 'labos-department-usage-report', 'Department-level commodity usage for internal review.'],
   ['Audit logs', '/reports/audit', 'labos-audit-log', 'Traceable system activity and approval changes.'],
   ['MOH 706 monthly', '/reports/moh706', 'labos-moh-706-monthly-report', 'Monthly test counts, commodities used, stock balances, and totals.']
 ];

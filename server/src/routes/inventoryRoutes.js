@@ -13,11 +13,20 @@ router.post('/', authorize(ROLES.ADMIN), [
   body('name').notEmpty(),
   body('category').notEmpty(),
   body('unit').notEmpty(),
-  body('quantity').isNumeric(),
-  body('minThreshold').isNumeric(),
-  body('expiryDate').isISO8601()
+  body('quantity').isFloat({ min: 0 }),
+  body('minThreshold').isFloat({ min: 0 }),
+  body('expiryDate').isISO8601(),
+  body('status').optional().isIn(['active', 'inactive'])
 ], validate, asyncHandler(createItem));
-router.put('/:id', authorize(ROLES.ADMIN), asyncHandler(updateItem));
+router.put('/:id', authorize(ROLES.ADMIN), [
+  body('name').optional().notEmpty(),
+  body('category').optional().notEmpty(),
+  body('unit').optional().notEmpty(),
+  body('quantity').optional().isFloat({ min: 0 }),
+  body('minThreshold').optional().isFloat({ min: 0 }),
+  body('expiryDate').optional().isISO8601(),
+  body('status').optional().isIn(['active', 'inactive'])
+], validate, asyncHandler(updateItem));
 router.delete('/:id', authorize(ROLES.ADMIN), asyncHandler(deleteItem));
 
 export default router;

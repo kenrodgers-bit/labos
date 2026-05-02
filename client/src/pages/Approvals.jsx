@@ -2,22 +2,28 @@ import { Check, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import DataTable from '../components/DataTable.jsx';
 import Modal from '../components/Modal.jsx';
+import StatusBadge from '../components/StatusBadge.jsx';
+import { useToast } from '../components/ToastProvider.jsx';
 import api from '../services/api.js';
 import { apiErrorMessage } from '../utils/errors.js';
-import { statusTone } from '../utils/format.js';
 
 export default function Approvals() {
+  const toast = useToast();
   const [requests, setRequests] = useState([]);
   const [decision, setDecision] = useState(null);
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
   async function load() {
+    setLoading(true);
     try {
       const { data } = await api.get('/requests', { params: { status: 'pending' } });
       setRequests(data);
       setError('');
     } catch (err) {
       setError(apiErrorMessage(err, 'Approvals could not be loaded.'));
+    } finally {
+      setLoading(false);
     }
   }
   useEffect(() => { load(); }, []);
@@ -27,6 +33,7 @@ export default function Approvals() {
     try {
       await api.patch(`/requests/${decision._id}/decision`, Object.fromEntries(new FormData(event.currentTarget)));
       setDecision(null);
+      toast?.pushToast('Request decision saved.');
       load();
     } catch (err) {
       setError(apiErrorMessage(err, 'Decision could not be saved.'));
@@ -42,9 +49,9 @@ export default function Approvals() {
           { key: 'requestedBy', label: 'Requested by', render: (row) => row.requestedBy?.name },
           { key: 'department', label: 'Department', render: (row) => row.departmentId?.name },
           { key: 'requestedQuantity', label: 'Qty' },
-          { key: 'urgency', label: 'Urgency', render: (row) => <span className={`badge ${statusTone(row.urgency)}`}>{row.urgency}</span> },
+          { key: 'urgency', label: 'Urgency', render: (row) => <StatusBadge value={row.urgency} /> },
           { key: 'actions', label: 'Decision', render: (row) => <div className="flex gap-2"><button className="btn-primary !px-3" onClick={() => setDecision({ ...row, mode: 'approved' })}><Check size={16} /> Approve</button><button className="btn-secondary !px-3" onClick={() => setDecision({ ...row, mode: 'rejected' })}><X size={16} /> Decide</button></div> }
-        ]} rows={requests} empty="No pending approvals" />
+        ]} rows={requests} empty="No pending approvals" loading={loading} />
       </div>
       {decision && (
         <Modal title={`Decision: ${decision.itemId?.name}`} onClose={() => setDecision(null)}>

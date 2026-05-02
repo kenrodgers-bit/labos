@@ -19,6 +19,10 @@ export function statusTone(status) {
     pending: 'bg-blue-50 text-blue-700',
     active: 'bg-emerald-50 text-emerald-700',
     inactive: 'bg-slate-100 text-slate-600',
+    available: 'bg-emerald-50 text-emerald-700',
+    low_stock: 'bg-amber-50 text-amber-800',
+    out_of_stock: 'bg-rose-50 text-rose-700',
+    expired: 'bg-rose-50 text-rose-700',
     critical: 'bg-rose-50 text-rose-700',
     urgent: 'bg-amber-50 text-amber-800',
     routine: 'bg-slate-100 text-slate-600'

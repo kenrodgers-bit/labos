@@ -1,6 +1,6 @@
 # LabOS
 
-LabOS is a production-oriented Hospital Laboratory Inventory Management System for Kenyan hospitals and clinics. It includes JWT authentication, role-based access, inventory control, partial approval workflows, audit logs, reporting, PDF/Excel exports, MOH 706-style monthly summaries, and PWA installation support.
+LabOS is a production-oriented Hospital Laboratory Inventory Management System for Kenyan hospitals and clinics. It provides admin-controlled staff accounts, JWT authentication, role-based workspaces, inventory control, request approvals, audit logs, reporting, PDF/Excel exports, MOH 706-style summaries, system settings, and PWA installation support.
 
 ## Stack
 
@@ -8,6 +8,24 @@ LabOS is a production-oriented Hospital Laboratory Inventory Management System f
 - Backend: Node.js, Express, MongoDB, Mongoose
 - Auth: JWT and bcrypt password hashing
 - Exports: PDF and Excel
+
+## Account Model
+
+Public registration is disabled. Admins create and manage all staff accounts from the Staff screen.
+
+Demo users are created only by the seed script and only when no users exist, unless `--force` is used. Demo users are normal accounts: once an admin changes a demo email or password, the old demo login stops working.
+
+## Demo Guide
+
+Seeded first-time testing accounts:
+
+| Role | Email | Password |
+| --- | --- | --- |
+| Admin | `admin@labos.local` | `LabOS@12345` |
+| Commodity Manager | `manager@labos.local` | `LabOS@12345` |
+| Lab Staff | `haem.staff@labos.local` | `LabOS@12345` |
+
+Change these passwords before any real facility demonstration. Do not publish seeded credentials in the application UI.
 
 ## Quick Start
 
@@ -19,17 +37,16 @@ LabOS is a production-oriented Hospital Laboratory Inventory Management System f
 
 2. Create environment files:
 
-   ```bash
-   copy .env.example server\.env
-   copy .env.example client\.env
+   ```powershell
+   copy server\.env.example server\.env
+   copy client\.env.example client\.env
    ```
 
 3. Start MongoDB locally or set `MONGO_URI` to MongoDB Atlas in `server/.env`.
 
-4. Seed starter data with a facility-controlled password:
+4. Seed starter data:
 
-   ```powershell
-   $env:LABOS_SEED_PASSWORD="<set-a-strong-temporary-password>"
+   ```bash
    npm run seed
    ```
 
@@ -46,26 +63,33 @@ LabOS is a production-oriented Hospital Laboratory Inventory Management System f
 
 ## Role Capabilities
 
-- Admin: staff accounts, departments, permissions, inventory CRUD, all request decisions, reports, audit logs, dashboards.
+- Admin: staff accounts, departments, system settings, inventory CRUD/deactivation, all request decisions, reports, audit logs, dashboards.
 - Commodity Manager: approval queue, stock alerts, reports, audit visibility.
-- Lab Staff: request commodities, view own request status, inventory visibility.
+- Lab Staff: request commodities, view own request status, inventory visibility, profile/password settings.
 
-## Approval Logic
+## Security Notes
 
-Requests store requested quantity, approved quantity, adjustment reason, adjusted by, approved by, and approval timestamp. Stock is reduced only when a request is approved or partially approved. Rejections do not affect stock.
+- Passwords are stored as bcrypt hashes in `passwordHash`.
+- Inactive users cannot sign in.
+- Public self-registration is not exposed.
+- Admin-only routes are protected server-side.
+- Sensitive actions write audit records with actor, target, before/after data, IP address, user agent, and timestamp.
+- Use a long random `JWT_SECRET` in production.
 
 ## Reports
 
 The Reports screen exports:
 
 - Inventory report
+- Low stock report
+- Expiry report
 - Request report
 - Usage report
 - Department usage report
-- Audit logs
+- Audit log report
 - MOH 706 monthly laboratory summary
 
-PDF exports and Excel exports are downloaded through authenticated API requests.
+PDF and Excel exports are downloaded through authenticated API requests.
 
 ## LAN Deployment Guide
 
@@ -110,23 +134,20 @@ For a production LAN installation, build the frontend with `npm run build --pref
 
 ## Cloud Deployment
 
-- Backend: Render Web Service, build `npm install`, start `npm start`, root `server`.
+- Backend: Render Web Service or a Node host with a stable outbound IP.
 - Frontend: Vercel project, root `client`, build `npm run build`, output `dist`.
-- Database: MongoDB Atlas, set `MONGO_URI` in Render.
-- Set `VITE_API_URL` in Vercel to the Render API URL plus `/api`.
-- Set `CLIENT_URL` in Render to the Vercel frontend URL.
+- Database: MongoDB Atlas.
+- Set `MONGO_URI`, `JWT_SECRET`, `JWT_EXPIRES_IN`, and `CLIENT_URL` in the backend host.
+- Set `VITE_API_URL` in the frontend host to the backend API URL plus `/api`.
 
-For Vercel serverless API deployments, MongoDB Atlas must allow traffic from the deployment platform. For a controlled hospital deployment, prefer a backend host with static outbound IPs and allowlist only those IPs in Atlas. For a short demonstration, Atlas can temporarily allow `0.0.0.0/0`, then be tightened immediately after the demo.
+For Vercel serverless API deployments, MongoDB Atlas must allow traffic from the deployment platform. For a controlled hospital deployment, prefer a backend host with static outbound IPs and allowlist only those IPs in Atlas.
 
-## Environment Variables
+## Commands
 
-See `.env.example`.
-
-Important production notes:
-
-- Use a long random `JWT_SECRET`.
-- Use HTTPS for cloud deployment.
-- Restrict CORS to known client URLs.
-- Do not publish or display seeded account credentials.
-- Rotate bootstrap passwords before real hospital use.
-- Create individual staff accounts through the Admin Staff screen.
+```bash
+npm run install:all
+npm run seed
+npm run dev
+npm run build --prefix client
+npm start --prefix server
+```

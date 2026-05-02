@@ -1,5 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import Layout from './components/Layout.jsx';
+import ProtectedRoute from './components/ProtectedRoute.jsx';
+import RoleBasedRoute from './components/RoleBasedRoute.jsx';
+import { ToastProvider } from './components/ToastProvider.jsx';
 import { AuthProvider, useAuth } from './context/AuthContext.jsx';
 import api from './services/api.js';
 import Approvals from './pages/Approvals.jsx';
@@ -29,23 +32,28 @@ function Shell() {
   const page = useMemo(() => {
     if (active === 'inventory') return <Inventory user={user} />;
     if (active === 'requests') return <Requests user={user} />;
-    if (active === 'approvals') return <Approvals />;
+    if (active === 'approvals') return <RoleBasedRoute roles={['admin', 'commodity_manager']}><Approvals /></RoleBasedRoute>;
     if (active === 'reports') return <Reports />;
-    if (active === 'audit') return <AuditLogs />;
-    if (active === 'departments') return <Departments />;
-    if (active === 'users') return <Users />;
+    if (active === 'audit') return <RoleBasedRoute roles={['admin', 'commodity_manager']}><AuditLogs /></RoleBasedRoute>;
+    if (active === 'departments') return <RoleBasedRoute roles={['admin']}><Departments /></RoleBasedRoute>;
+    if (active === 'users') return <RoleBasedRoute roles={['admin']}><Users /></RoleBasedRoute>;
     if (active === 'settings') return <Settings />;
     return <Dashboard data={dashboard} />;
   }, [active, dashboard, user]);
 
-  if (!isAuthenticated) return <Login />;
-  return <Layout active={active} setActive={setActive} alerts={dashboard?.alerts?.length || 0}>{page}</Layout>;
+  return (
+    <ProtectedRoute>
+      <Layout active={active} setActive={setActive} alerts={dashboard?.alerts?.length || 0}>{page}</Layout>
+    </ProtectedRoute>
+  );
 }
 
 export default function App() {
   return (
-    <AuthProvider>
-      <Shell />
-    </AuthProvider>
+    <ToastProvider>
+      <AuthProvider>
+        <Shell />
+      </AuthProvider>
+    </ToastProvider>
   );
 }

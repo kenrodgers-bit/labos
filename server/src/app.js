@@ -14,6 +14,8 @@ import departmentRoutes from './routes/departmentRoutes.js';
 import inventoryRoutes from './routes/inventoryRoutes.js';
 import reportRoutes from './routes/reportRoutes.js';
 import requestRoutes from './routes/requestRoutes.js';
+import stockMovementRoutes from './routes/stockMovementRoutes.js';
+import systemSettingsRoutes from './routes/systemSettingsRoutes.js';
 import userRoutes from './routes/userRoutes.js';
 
 dotenv.config();
@@ -45,8 +47,10 @@ app.use('/api/users', userRoutes);
 app.use('/api/departments', departmentRoutes);
 app.use('/api/inventory', inventoryRoutes);
 app.use('/api/requests', requestRoutes);
+app.use('/api/stock-movements', stockMovementRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/audit-logs', auditRoutes);
+app.use('/api/system-settings', systemSettingsRoutes);
 app.use(notFound);
 app.use(errorHandler);
 

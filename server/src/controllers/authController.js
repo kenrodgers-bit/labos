@@ -8,35 +8,38 @@ function signToken(user) {
 }
 
 function publicUser(user) {
-  const plain = user.toObject ? user.toObject() : user;
-  delete plain.password;
-  return plain;
+  return user?.toPublicJSON ? user.toPublicJSON() : user?.toJSON?.() || user;
 }
 
-export async function register(req, res) {
-  const userCount = await User.estimatedDocumentCount();
-  if (userCount > 0) {
-    return res.status(403).json({ message: 'Public registration is disabled. Ask an administrator to create staff accounts.' });
-  }
-
-  const user = await User.create({
-    name: req.body.name,
-    email: req.body.email,
-    password: req.body.password,
-    departmentId: req.body.departmentId,
-    role: ROLES.ADMIN
-  });
-  await writeAudit({ action: 'user.registered', userId: user._id, after: publicUser(user), req });
-  res.status(201).json({ token: signToken(user), user: publicUser(user) });
+async function findUserWithPassword(idOrQuery) {
+  const query = idOrQuery?.constructor?.name === 'Object' ? idOrQuery : { _id: idOrQuery };
+  return User.findOne(query).select('+passwordHash +password').populate('departmentId');
 }
 
 export async function login(req, res) {
-  const user = await User.findOne({ email: req.body.email }).select('+password').populate('departmentId');
-  if (!user || !(await user.comparePassword(req.body.password))) return res.status(401).json({ message: 'Invalid email or password' });
-  if (user.status !== 'active') return res.status(403).json({ message: 'Account is inactive' });
-  user.lastLoginAt = new Date();
+  const email = req.body.email.toLowerCase().trim();
+  const user = await findUserWithPassword({ email });
+
+  if (!user) {
+    await writeAudit({ action: 'auth.login_failed', after: { email, reason: 'unknown_account' }, req });
+    return res.status(401).json({ message: 'Invalid email or password' });
+  }
+
+  if (!(await user.comparePassword(req.body.password))) {
+    await writeAudit({ action: 'auth.login_failed', targetUserId: user._id, after: { email, reason: 'invalid_password' }, req });
+    return res.status(401).json({ message: 'Invalid email or password' });
+  }
+
+  if (user.status !== 'active') {
+    await writeAudit({ action: 'auth.login_failed', targetUserId: user._id, after: { email, reason: 'inactive_account' }, req });
+    return res.status(403).json({ message: 'Account is inactive. Contact an administrator.' });
+  }
+
+  user.lastLogin = new Date();
+  if (user.password && !user.passwordHash) user.passwordHash = user.password;
+  user.password = undefined;
   await user.save();
-  await writeAudit({ action: 'auth.login', userId: user._id, req });
+  await writeAudit({ action: 'auth.login_success', performedBy: user._id, targetUserId: user._id, req });
   res.json({ token: signToken(user), user: publicUser(user) });
 }
 
@@ -45,34 +48,48 @@ export async function me(req, res) {
 }
 
 export async function updateProfile(req, res) {
-  if (req.user.role !== ROLES.ADMIN) return res.status(403).json({ message: 'Only administrators can update their profile name.' });
-
   const before = publicUser(req.user);
-  req.user.name = req.body.name.trim();
-  await req.user.save();
-  const user = await User.findById(req.user._id).populate('departmentId');
+  const updates = {};
+
+  if (req.body.name !== undefined) updates.name = req.body.name.trim();
+  if (req.body.email !== undefined) {
+    if (req.user.role !== ROLES.ADMIN) return res.status(403).json({ message: 'Only administrators can change their own email address.' });
+    const email = req.body.email.toLowerCase().trim();
+    const duplicate = await User.findOne({ email, _id: { $ne: req.user._id } });
+    if (duplicate) return res.status(409).json({ message: 'Email is already assigned to another account.' });
+    updates.email = email;
+  }
+
+  if (Object.keys(updates).length === 0) return res.status(400).json({ message: 'No profile changes were submitted.' });
+
+  const editableUser = await findUserWithPassword(req.user._id);
+  Object.assign(editableUser, updates);
+  await editableUser.save();
+  const user = await User.findById(editableUser._id).populate('departmentId');
+  const after = publicUser(user);
   await writeAudit({
-    action: 'profile.name_updated',
-    userId: req.user._id,
-    before: { name: before.name },
-    after: { name: user.name },
+    action: updates.email ? 'profile.email_changed' : 'profile.updated',
+    performedBy: req.user._id,
+    targetUserId: req.user._id,
+    before: { name: before.name, email: before.email },
+    after: { name: after.name, email: after.email },
     req
   });
-  res.json({ user: publicUser(user) });
+  res.json({ user: after });
 }
 
 export async function changePassword(req, res) {
-  const user = await User.findById(req.user._id).select('+password');
+  const user = await findUserWithPassword(req.user._id);
   if (!user) return res.status(404).json({ message: 'User not found' });
 
   const passwordMatches = await user.comparePassword(req.body.currentPassword);
-  if (!passwordMatches) return res.status(400).json({ message: 'Current password is incorrect' });
+  if (!passwordMatches) return res.status(400).json({ message: 'Current password is incorrect.' });
 
   const samePassword = await user.comparePassword(req.body.newPassword);
-  if (samePassword) return res.status(400).json({ message: 'New password must be different from the current password' });
+  if (samePassword) return res.status(400).json({ message: 'New password must be different from the current password.' });
 
-  user.password = req.body.newPassword;
+  user.setPassword(req.body.newPassword, { mustChangePassword: false });
   await user.save();
-  await writeAudit({ action: 'profile.password_changed', userId: req.user._id, req });
-  res.json({ message: 'Password changed successfully' });
+  await writeAudit({ action: 'profile.password_changed', performedBy: user._id, targetUserId: user._id, req });
+  res.json({ message: 'Password changed successfully.' });
 }

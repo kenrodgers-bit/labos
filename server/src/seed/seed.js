@@ -6,6 +6,7 @@ import Department from '../models/Department.js';
 import InventoryItem from '../models/InventoryItem.js';
 import Request from '../models/Request.js';
 import StockMovement from '../models/StockMovement.js';
+import SystemSettings from '../models/SystemSettings.js';
 import User from '../models/User.js';
 import { ROLES } from '../utils/permissions.js';
 
@@ -38,39 +39,32 @@ const itemSeed = [
 async function seed() {
   await connectDB();
   const force = process.argv.includes('--force');
-  const existingRecords = await Promise.all([
-    AuditLog.estimatedDocumentCount(),
-    StockMovement.estimatedDocumentCount(),
-    Request.estimatedDocumentCount(),
-    InventoryItem.estimatedDocumentCount(),
-    User.estimatedDocumentCount(),
-    Department.estimatedDocumentCount()
-  ]);
+  const existingUsers = await User.estimatedDocumentCount();
 
-  if (existingRecords.some((count) => count > 0) && !force) {
-    console.log('LabOS seed skipped because this database already has data. Run `npm run seed -- --force` to reset it.');
+  if (existingUsers > 0 && !force) {
+    console.log('LabOS seed skipped because staff accounts already exist. Run `npm run seed -- --force` to reset demo data.');
     await mongoose.disconnect();
     return;
   }
 
-  const seedPassword = process.env.LABOS_SEED_PASSWORD;
-  if (!seedPassword || seedPassword.length < 12) {
-    throw new Error('Set LABOS_SEED_PASSWORD to a facility-controlled password of at least 12 characters before seeding.');
+  const seedPassword = process.env.LABOS_SEED_PASSWORD || 'LabOS@12345';
+  if (process.env.NODE_ENV === 'production' && !process.env.LABOS_SEED_PASSWORD) {
+    throw new Error('Set LABOS_SEED_PASSWORD before seeding production data.');
   }
 
   if (force) {
-    await Promise.all([AuditLog.deleteMany(), StockMovement.deleteMany(), Request.deleteMany(), InventoryItem.deleteMany(), User.deleteMany(), Department.deleteMany()]);
+    await Promise.all([AuditLog.deleteMany(), StockMovement.deleteMany(), Request.deleteMany(), InventoryItem.deleteMany(), User.deleteMany(), Department.deleteMany(), SystemSettings.deleteMany()]);
   }
 
   const departments = await Department.insertMany(departmentNames.map((name) => ({ name, description: `${name} laboratory section` })));
   const byName = Object.fromEntries(departments.map((department) => [department.name, department]));
 
   const users = await User.create([
-    { name: 'Amina Otieno', email: 'admin@labos.local', password: seedPassword, role: ROLES.ADMIN, departmentId: byName.Haematology._id },
-    { name: 'Peter Mwangi', email: 'manager@labos.local', password: seedPassword, role: ROLES.MANAGER, departmentId: byName.Biochemistry._id },
-    { name: 'Grace Wanjiku', email: 'haem.staff@labos.local', password: seedPassword, role: ROLES.STAFF, departmentId: byName.Haematology._id },
-    { name: 'Brian Kiptoo', email: 'micro.staff@labos.local', password: seedPassword, role: ROLES.STAFF, departmentId: byName.Microbiology._id },
-    { name: 'Linet Achieng', email: 'phleb.staff@labos.local', password: seedPassword, role: ROLES.STAFF, departmentId: byName.Phlebotomy._id }
+    { name: 'Amina Otieno', email: 'admin@labos.local', passwordHash: seedPassword, role: ROLES.ADMIN, departmentId: byName.Haematology._id },
+    { name: 'Peter Mwangi', email: 'manager@labos.local', passwordHash: seedPassword, role: ROLES.MANAGER, departmentId: byName.Biochemistry._id },
+    { name: 'Grace Wanjiku', email: 'haem.staff@labos.local', passwordHash: seedPassword, role: ROLES.STAFF, departmentId: byName.Haematology._id },
+    { name: 'Brian Kiptoo', email: 'micro.staff@labos.local', passwordHash: seedPassword, role: ROLES.STAFF, departmentId: byName.Microbiology._id },
+    { name: 'Linet Achieng', email: 'phleb.staff@labos.local', passwordHash: seedPassword, role: ROLES.STAFF, departmentId: byName.Phlebotomy._id }
   ]);
 
   const items = await InventoryItem.insertMany(itemSeed.map((item, index) => ({
@@ -101,8 +95,18 @@ async function seed() {
     { itemId: items[7]._id, requestedBy: users[4]._id, departmentId: byName.Phlebotomy._id, requestedQuantity: 20, status: 'pending', urgency: 'routine' }
   ]);
 
-  await AuditLog.create({ action: 'system.seeded', userId: users[0]._id, after: { departments: departments.length, users: users.length, items: items.length, requests: requests.length } });
-  console.log('LabOS seed complete. Seeded users were created with the facility-controlled LABOS_SEED_PASSWORD.');
+  await AuditLog.create({ action: 'system.seeded', performedBy: users[0]._id, userId: users[0]._id, after: { departments: departments.length, users: users.length, items: items.length, requests: requests.length } });
+  await SystemSettings.create({
+    hospitalName: 'LabOS Demonstration Hospital',
+    facilityCode: 'LABOS-DEMO',
+    county: 'Nairobi',
+    subCounty: 'Westlands',
+    contactEmail: 'lab@example.health',
+    contactPhone: '+254700000000',
+    lowStockAlertMode: 'threshold',
+    updatedBy: users[0]._id
+  });
+  console.log('LabOS seed complete. Demo staff accounts were created for first-time testing.');
   await mongoose.disconnect();
 }
 

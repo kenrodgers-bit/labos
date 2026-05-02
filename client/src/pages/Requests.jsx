@@ -2,24 +2,31 @@ import { Plus } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import DataTable from '../components/DataTable.jsx';
 import Modal from '../components/Modal.jsx';
+import StatusBadge from '../components/StatusBadge.jsx';
+import { useToast } from '../components/ToastProvider.jsx';
 import api from '../services/api.js';
 import { apiErrorMessage } from '../utils/errors.js';
-import { formatDate, statusTone } from '../utils/format.js';
+import { formatDate } from '../utils/format.js';
 
 export default function Requests({ user }) {
+  const toast = useToast();
   const [requests, setRequests] = useState([]);
   const [items, setItems] = useState([]);
   const [open, setOpen] = useState(false);
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
   async function load() {
+    setLoading(true);
     try {
-      const [reqRes, itemRes] = await Promise.all([api.get('/requests', { params: { mine: user.role === 'lab_staff' } }), api.get('/inventory')]);
+      const [reqRes, itemRes] = await Promise.all([api.get('/requests', { params: { mine: user.role === 'lab_staff' } }), api.get('/inventory', { params: { status: 'active', limit: 100 } })]);
       setRequests(reqRes.data);
       setItems(itemRes.data.items || []);
       setError('');
     } catch (err) {
       setError(apiErrorMessage(err, 'Requests could not be loaded.'));
+    } finally {
+      setLoading(false);
     }
   }
   useEffect(() => { load(); }, []);
@@ -29,6 +36,7 @@ export default function Requests({ user }) {
     try {
       await api.post('/requests', Object.fromEntries(new FormData(event.currentTarget)));
       setOpen(false);
+      toast?.pushToast('Request submitted.');
       load();
     } catch (err) {
       setError(apiErrorMessage(err, 'Request could not be submitted.'));
@@ -45,11 +53,11 @@ export default function Requests({ user }) {
           { key: 'requestedQuantity', label: 'Requested' },
           { key: 'approvedQuantity', label: 'Approved' },
           { key: 'department', label: 'Department', render: (row) => row.departmentId?.name },
-          { key: 'urgency', label: 'Urgency', render: (row) => <span className={`badge ${statusTone(row.urgency)}`}>{row.urgency}</span> },
-          { key: 'status', label: 'Status', render: (row) => <span className={`badge ${statusTone(row.status)}`}>{row.status.replace('_', ' ')}</span> },
+          { key: 'urgency', label: 'Urgency', render: (row) => <StatusBadge value={row.urgency} /> },
+          { key: 'status', label: 'Status', render: (row) => <StatusBadge value={row.status} /> },
           { key: 'reason', label: 'Adjustment', render: (row) => row.adjustmentReason || '-' },
           { key: 'createdAt', label: 'Created', render: (row) => formatDate(row.createdAt) }
-        ]} rows={requests} />
+        ]} rows={requests} loading={loading} empty="No requests found" />
       </div>
       {open && (
         <Modal title="Request commodity" onClose={() => setOpen(false)}>

@@ -1,41 +1,130 @@
-import { Plus } from 'lucide-react';
+import { KeyRound, Plus, Search } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import DataTable from '../components/DataTable.jsx';
 import Modal from '../components/Modal.jsx';
+import StatusBadge from '../components/StatusBadge.jsx';
+import { useToast } from '../components/ToastProvider.jsx';
 import api from '../services/api.js';
-import { roleLabel, statusTone } from '../utils/format.js';
+import { apiErrorMessage } from '../utils/errors.js';
+import { formatDate, roleLabel } from '../utils/format.js';
+
+const emptyStaff = { role: 'lab_staff', status: 'active', departmentId: '' };
 
 export default function Users() {
+  const toast = useToast();
   const [users, setUsers] = useState([]);
   const [departments, setDepartments] = useState([]);
   const [editing, setEditing] = useState(null);
-  async function load() {
-    const [usersRes, deptRes] = await Promise.all([api.get('/users'), api.get('/departments')]);
-    setUsers(usersRes.data);
-    setDepartments(deptRes.data);
+  const [resetting, setResetting] = useState(null);
+  const [filters, setFilters] = useState({ search: '', role: '', status: '', page: 1 });
+  const [pagination, setPagination] = useState({ page: 1, pages: 1, total: 0 });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  async function load(nextFilters = filters) {
+    setLoading(true);
+    try {
+      const [usersRes, deptRes] = await Promise.all([api.get('/users', { params: nextFilters }), api.get('/departments')]);
+      setUsers(usersRes.data.users || []);
+      setPagination({ page: usersRes.data.page, pages: usersRes.data.pages, total: usersRes.data.total });
+      setDepartments(deptRes.data);
+      setError('');
+    } catch (err) {
+      setError(apiErrorMessage(err, 'Staff accounts could not be loaded.'));
+    } finally {
+      setLoading(false);
+    }
   }
+
   useEffect(() => { load(); }, []);
+
+  function updateFilter(field, value) {
+    const next = { ...filters, [field]: value, page: 1 };
+    setFilters(next);
+    load(next);
+  }
+
   async function save(event) {
     event.preventDefault();
     const payload = Object.fromEntries(new FormData(event.currentTarget));
-    if (!payload.password) delete payload.password;
-    if (editing?._id) await api.put(`/users/${editing._id}`, payload);
-    else await api.post('/users', payload);
-    setEditing(null);
-    load();
+    if (!payload.departmentId) delete payload.departmentId;
+    try {
+      if (editing?._id) await api.put(`/users/${editing._id}`, payload);
+      else await api.post('/users', payload);
+      setEditing(null);
+      toast?.pushToast(editing?._id ? 'Staff account updated.' : 'Staff account created.');
+      load();
+    } catch (err) {
+      setError(apiErrorMessage(err, 'Staff account could not be saved.'));
+    }
   }
+
+  async function resetPassword(event) {
+    event.preventDefault();
+    const payload = Object.fromEntries(new FormData(event.currentTarget));
+    if (payload.password !== payload.confirmPassword) {
+      setError('Password and confirmation do not match.');
+      return;
+    }
+    try {
+      await api.patch(`/users/${resetting._id}/password`, { password: payload.password });
+      setResetting(null);
+      toast?.pushToast('Staff password reset.');
+      load();
+    } catch (err) {
+      setError(apiErrorMessage(err, 'Password could not be reset.'));
+    }
+  }
+
+  function changePage(page) {
+    const next = { ...filters, page };
+    setFilters(next);
+    load(next);
+  }
+
   return (
     <div className="space-y-5">
-      <div className="flex justify-end"><button className="btn-primary" onClick={() => setEditing({ role: 'lab_staff', status: 'active' })}><Plus size={18} /> Staff account</button></div>
+      {error && <div className="rounded-lg bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">{error}</div>}
+      <div className="grid gap-3 lg:grid-cols-[1fr_180px_180px_auto]">
+        <div className="relative">
+          <Search className="absolute left-3 top-2.5 text-slate-400" size={18} />
+          <input className="input pl-10" placeholder="Search staff by name or email" value={filters.search} onChange={(event) => updateFilter('search', event.target.value)} />
+        </div>
+        <select className="input" value={filters.role} onChange={(event) => updateFilter('role', event.target.value)}>
+          <option value="">All roles</option>
+          <option value="admin">Admin</option>
+          <option value="commodity_manager">Commodity Manager</option>
+          <option value="lab_staff">Lab Staff</option>
+        </select>
+        <select className="input" value={filters.status} onChange={(event) => updateFilter('status', event.target.value)}>
+          <option value="">All statuses</option>
+          <option value="active">Active</option>
+          <option value="inactive">Inactive</option>
+        </select>
+        <button className="btn-primary" onClick={() => setEditing(emptyStaff)}><Plus size={18} /> Staff account</button>
+      </div>
       <div className="panel overflow-hidden">
-        <DataTable columns={[
-          { key: 'name', label: 'Name' },
-          { key: 'email', label: 'Email' },
-          { key: 'role', label: 'Role', render: (row) => roleLabel(row.role) },
-          { key: 'department', label: 'Department', render: (row) => row.departmentId?.name || '-' },
-          { key: 'status', label: 'Status', render: (row) => <span className={`badge ${statusTone(row.status)}`}>{row.status}</span> },
-          { key: 'actions', label: '', render: (row) => <button className="btn-secondary" onClick={() => setEditing({ ...row, departmentId: row.departmentId?._id || '' })}>Edit</button> }
-        ]} rows={users} />
+        <DataTable
+          loading={loading}
+          pagination={pagination}
+          onPageChange={changePage}
+          columns={[
+            { key: 'name', label: 'Name' },
+            { key: 'email', label: 'Email' },
+            { key: 'role', label: 'Role', render: (row) => roleLabel(row.role) },
+            { key: 'department', label: 'Department', render: (row) => row.departmentId?.name || '-' },
+            { key: 'status', label: 'Status', render: (row) => <StatusBadge value={row.status} /> },
+            { key: 'createdAt', label: 'Created', render: (row) => formatDate(row.createdAt) },
+            { key: 'actions', label: '', render: (row) => (
+              <div className="flex gap-2">
+                <button className="btn-secondary !py-1.5" onClick={() => setEditing({ ...row, departmentId: row.departmentId?._id || '' })}>Edit</button>
+                <button className="btn-secondary !py-1.5" onClick={() => setResetting(row)}><KeyRound size={15} /> Reset</button>
+              </div>
+            ) }
+          ]}
+          rows={users}
+          empty="No staff accounts match these filters"
+        />
       </div>
       {editing && (
         <Modal title={editing._id ? 'Edit staff account' : 'Create staff account'} onClose={() => setEditing(null)}>
@@ -43,10 +132,19 @@ export default function Users() {
             <label className="text-sm font-bold text-slate-700">Name<input className="input mt-1" name="name" defaultValue={editing.name || ''} required /></label>
             <label className="text-sm font-bold text-slate-700">Email<input className="input mt-1" name="email" type="email" defaultValue={editing.email || ''} required /></label>
             <label className="text-sm font-bold text-slate-700">Role<select className="input mt-1" name="role" defaultValue={editing.role}><option value="admin">Admin</option><option value="commodity_manager">Commodity Manager</option><option value="lab_staff">Lab Staff</option></select></label>
-            <label className="text-sm font-bold text-slate-700">Department<select className="input mt-1" name="departmentId" defaultValue={editing.departmentId || ''}>{departments.map((department) => <option key={department._id} value={department._id}>{department.name}</option>)}</select></label>
+            <label className="text-sm font-bold text-slate-700">Department<select className="input mt-1" name="departmentId" defaultValue={editing.departmentId || ''}><option value="">Unassigned</option>{departments.map((department) => <option key={department._id} value={department._id}>{department.name}</option>)}</select></label>
             <label className="text-sm font-bold text-slate-700">Status<select className="input mt-1" name="status" defaultValue={editing.status || 'active'}><option value="active">Active</option><option value="inactive">Inactive</option></select></label>
-            <label className="text-sm font-bold text-slate-700">Password<input className="input mt-1" name="password" type="password" placeholder={editing._id ? 'Leave blank to keep' : 'Minimum 8 characters'} required={!editing._id} /></label>
+            {!editing._id && <label className="text-sm font-bold text-slate-700">Temporary password<input className="input mt-1" name="password" type="password" minLength={8} required /></label>}
             <div className="flex justify-end gap-3 sm:col-span-2"><button type="button" className="btn-secondary" onClick={() => setEditing(null)}>Cancel</button><button className="btn-primary">Save account</button></div>
+          </form>
+        </Modal>
+      )}
+      {resetting && (
+        <Modal title={`Reset password: ${resetting.name}`} onClose={() => setResetting(null)}>
+          <form onSubmit={resetPassword} className="space-y-4">
+            <label className="block text-sm font-bold text-slate-700">New temporary password<input className="input mt-1" name="password" type="password" minLength={8} required /></label>
+            <label className="block text-sm font-bold text-slate-700">Confirm password<input className="input mt-1" name="confirmPassword" type="password" minLength={8} required /></label>
+            <div className="flex justify-end gap-3"><button type="button" className="btn-secondary" onClick={() => setResetting(null)}>Cancel</button><button className="btn-primary">Reset password</button></div>
           </form>
         </Modal>
       )}
