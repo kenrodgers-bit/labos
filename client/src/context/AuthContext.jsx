@@ -22,12 +22,17 @@ export function AuthProvider({ children }) {
     setUser(null);
   }
 
+  function updateUser(nextUser) {
+    localStorage.setItem('labos_user', JSON.stringify(nextUser));
+    setUser(nextUser);
+  }
+
   useEffect(() => {
     window.addEventListener('labos:unauthorized', logout);
     return () => window.removeEventListener('labos:unauthorized', logout);
   }, []);
 
-  const value = useMemo(() => ({ user, token, login, logout, isAuthenticated: Boolean(token) }), [user, token]);
+  const value = useMemo(() => ({ user, token, login, logout, updateUser, isAuthenticated: Boolean(token) }), [user, token]);
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 

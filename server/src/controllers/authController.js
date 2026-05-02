@@ -43,3 +43,36 @@ export async function login(req, res) {
 export async function me(req, res) {
   res.json({ user: publicUser(req.user) });
 }
+
+export async function updateProfile(req, res) {
+  if (req.user.role !== ROLES.ADMIN) return res.status(403).json({ message: 'Only administrators can update their profile name.' });
+
+  const before = publicUser(req.user);
+  req.user.name = req.body.name.trim();
+  await req.user.save();
+  const user = await User.findById(req.user._id).populate('departmentId');
+  await writeAudit({
+    action: 'profile.name_updated',
+    userId: req.user._id,
+    before: { name: before.name },
+    after: { name: user.name },
+    req
+  });
+  res.json({ user: publicUser(user) });
+}
+
+export async function changePassword(req, res) {
+  const user = await User.findById(req.user._id).select('+password');
+  if (!user) return res.status(404).json({ message: 'User not found' });
+
+  const passwordMatches = await user.comparePassword(req.body.currentPassword);
+  if (!passwordMatches) return res.status(400).json({ message: 'Current password is incorrect' });
+
+  const samePassword = await user.comparePassword(req.body.newPassword);
+  if (samePassword) return res.status(400).json({ message: 'New password must be different from the current password' });
+
+  user.password = req.body.newPassword;
+  await user.save();
+  await writeAudit({ action: 'profile.password_changed', userId: req.user._id, req });
+  res.json({ message: 'Password changed successfully' });
+}
