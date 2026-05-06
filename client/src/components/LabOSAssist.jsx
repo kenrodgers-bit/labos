@@ -14,19 +14,13 @@ const roleSuggestions = {
     'How do I export reports?',
     'How do audit logs work?'
   ],
-  commodity_manager: [
-    'How do I approve requests?',
-    'How do partial approvals work?',
-    'How do I check pending approvals?',
-    'Why do I need an adjustment reason?'
-  ],
-  lab_staff: [
+  staff: [
     'How do I request an item?',
     'How do I track my request?',
     'Why was my quantity reduced?',
     'What does pending mean?'
   ]
-};
+}; // LabOS fix: client-side assistant prompts only support Admin and Staff.
 
 function assistantWelcome(user) {
   return {
@@ -41,7 +35,7 @@ export default function LabOSAssist() {
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState(() => [assistantWelcome(user)]);
-  const [suggestions, setSuggestions] = useState(roleSuggestions[user.role] || roleSuggestions.lab_staff);
+  const [suggestions, setSuggestions] = useState(roleSuggestions[user.role] || roleSuggestions.staff); // LabOS fix: initial suggestions respect the two-role model.
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const inputRef = useRef(null);
@@ -60,7 +54,7 @@ export default function LabOSAssist() {
     try {
       const data = await sendAssistantMessage(text);
       setMessages((current) => [...current, { id: `${Date.now()}-assistant`, sender: 'assistant', text: data.reply }]);
-      setSuggestions(data.suggestions || roleSuggestions[user.role] || roleSuggestions.lab_staff);
+      setSuggestions(data.suggestions || roleSuggestions[user.role] || roleSuggestions.staff); // LabOS fix: assistant fallback never references removed roles.
     } catch (err) {
       setError(apiErrorMessage(err, 'LabOS Assist could not respond. Please try again.'));
     } finally {

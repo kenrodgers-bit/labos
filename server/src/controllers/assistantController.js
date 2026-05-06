@@ -16,7 +16,7 @@ function normalize(value = '') {
 }
 
 function suggestionsFor(role, override) {
-  return override?.length ? override.slice(0, 4) : roleSuggestions[role] || roleSuggestions.lab_staff;
+  return override?.length ? override.slice(0, 4) : roleSuggestions[role] || roleSuggestions.staff; // LabOS fix: assistant fallback uses the Staff role only.
 }
 
 function keywordScore(message, entry) {

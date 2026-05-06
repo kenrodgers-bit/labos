@@ -9,9 +9,10 @@ const nav = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { id: 'inventory', label: 'Inventory', icon: Boxes },
   { id: 'requests', label: 'Requests', icon: ClipboardCheck },
-  { id: 'approvals', label: 'Approvals', icon: Shield, roles: ['admin', 'commodity_manager'] },
-  { id: 'reports', label: 'Reports', icon: FileText },
-  { id: 'audit', label: 'Audit Logs', icon: ScrollText, roles: ['admin', 'commodity_manager'] },
+  { id: 'approvals', label: 'Approvals', icon: Shield, roles: ['admin'] },
+  { id: 'reports', label: 'Reports', icon: FileText, roles: ['admin'] },
+  { id: 'audit', label: 'Audit Logs', icon: ScrollText, roles: ['admin'] },
+  // LabOS fix: Staff navigation excludes approvals, reports, audit logs, departments, and account management.
   { id: 'departments', label: 'Departments', icon: Building2, roles: ['admin'] },
   { id: 'users', label: 'Staff', icon: Users, roles: ['admin'] },
   { id: 'settings', label: 'Settings', icon: Settings }
@@ -52,7 +53,8 @@ export default function Layout({ active, setActive, alerts, children }) {
       </nav>
       <div className="border-t border-slate-100 p-4">
         <p className="text-sm font-bold text-slate-900">{user.name}</p>
-        <p className="text-xs text-slate-500">{roleLabel(user.role)} | {user.departmentId?.name || 'Central'}</p>
+        <p className="text-xs text-slate-500">{roleLabel(user.role)} | {user.role === 'admin' ? '-' : user.departmentId?.name || 'Unassigned'}</p>
+        {/* LabOS fix: admin accounts show no department in the shell. */}
         <button onClick={logout} className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg bg-slate-100 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-200">
           <LogOut size={16} /> Sign out
         </button>

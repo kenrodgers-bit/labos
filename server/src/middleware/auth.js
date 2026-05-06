@@ -10,7 +10,7 @@ export async function protect(req, res, next) {
     if (!token) return res.status(401).json({ message: 'Authentication required' });
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     const user = await User.findById(decoded.id).populate('departmentId');
-    if (!user || user.status !== 'active') return res.status(401).json({ message: 'Account is inactive or missing' });
+    if (!user || user.status !== 'active') return res.status(401).json({ message: 'Account is inactive or missing' }); // LabOS fix: every protected API route still blocks inactive/missing accounts.
     req.user = user;
     next();
   } catch {
@@ -20,7 +20,7 @@ export async function protect(req, res, next) {
 
 export function authorize(...roles) {
   return (req, res, next) => {
-    if (!roles.includes(req.user.role)) return res.status(403).json({ message: 'Insufficient role access' });
+    if (!roles.includes(req.user.role)) return res.status(403).json({ message: 'Insufficient role access' }); // LabOS fix: admin-only routes check role === 'admin' through explicit route role lists.
     next();
   };
 }

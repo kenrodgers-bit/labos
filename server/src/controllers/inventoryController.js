@@ -1,6 +1,8 @@
 import InventoryItem from '../models/InventoryItem.js';
+import StockRefillReminder from '../models/StockRefillReminder.js';
 import StockMovement from '../models/StockMovement.js';
 import { writeAudit } from '../utils/audit.js';
+import { ROLES } from '../utils/permissions.js';
 
 function itemPayload(body) {
   return {
@@ -59,7 +61,7 @@ export async function createItem(req, res) {
   if (item.quantity > 0) {
     await StockMovement.create({ itemId: item._id, type: 'in', quantity: item.quantity, performedBy: req.user._id, departmentId: item.departmentId, notes: 'Opening stock' });
   }
-  await writeAudit({ action: 'inventory.created', performedBy: req.user._id, targetItemId: item._id, after: item, req });
+  await writeAudit({ action: 'inventory.created', performedBy: req.user._id, targetItemId: item._id, details: 'Admin created inventory item', after: item, req }); // LabOS fix: inventory creation audit entries include details.
   res.status(201).json(await InventoryItem.findById(item._id).populate('departmentId'));
 }
 
@@ -84,7 +86,7 @@ export async function updateItem(req, res) {
   }
 
   const populated = await InventoryItem.findById(item._id).populate('departmentId');
-  await writeAudit({ action: 'inventory.updated', performedBy: req.user._id, targetItemId: item._id, before, after: populated, req });
+  await writeAudit({ action: 'inventory.updated', performedBy: req.user._id, targetItemId: item._id, details: 'Admin updated inventory item', before, after: populated, req }); // LabOS fix: inventory edits remain accountable.
   res.json(populated);
 }
 
@@ -96,6 +98,32 @@ export async function deleteItem(req, res) {
   item.deactivatedAt = new Date();
   item.deactivatedBy = req.user._id;
   await item.save();
-  await writeAudit({ action: 'inventory.deactivated', performedBy: req.user._id, targetItemId: item._id, before, after: item, req });
+  await writeAudit({ action: 'inventory.deactivated', performedBy: req.user._id, targetItemId: item._id, details: 'Admin deactivated inventory item', before, after: item, req }); // LabOS fix: soft deletes are auditable.
   res.json({ message: 'Item deactivated', item });
+}
+
+export async function sendRefillReminder(req, res) {
+  if (req.user.role !== ROLES.STAFF) return res.status(403).json({ message: 'Only staff can send refill reminders.' });
+  const item = await InventoryItem.findById(req.params.id).populate('departmentId');
+  if (!item || item.status === 'inactive') return res.status(404).json({ message: 'Inventory item is not available.' });
+
+  const departmentId = req.user.departmentId?._id || req.user.departmentId || item.departmentId?._id || item.departmentId;
+  const reminder = await StockRefillReminder.create({
+    itemId: item._id,
+    requestedBy: req.user._id,
+    departmentId,
+    note: req.body.note || ''
+  }); // LabOS fix: refill reminder is stored as a real workflow record for Admin follow-up.
+
+  await writeAudit({
+    action: 'stock_refill.reminded',
+    performedBy: req.user._id,
+    targetItemId: item._id,
+    departmentId,
+    details: `Staff requested stock refill for ${item.name}`,
+    after: { reminderId: reminder._id, item: item.name, quantity: item.quantity, threshold: item.minThreshold, note: reminder.note },
+    req
+  }); // LabOS fix: refill reminders are traceable in audit logs and filing reports.
+
+  res.status(201).json({ message: 'Refill reminder sent to Admin.', reminder: await StockRefillReminder.findById(reminder._id).populate('itemId requestedBy departmentId') });
 }

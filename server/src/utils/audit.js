@@ -16,6 +16,7 @@ export async function writeAudit({
   targetItemId,
   targetRequestId,
   departmentId,
+  details,
   before,
   after,
   req,
@@ -34,6 +35,7 @@ export async function writeAudit({
     targetItemId: targetItem,
     targetRequestId: targetRequest,
     departmentId,
+    details, // LabOS fix: preserve concise action details alongside before/after snapshots.
     before: publicObject(before),
     after: publicObject(after),
     ipAddress: req?.ip,

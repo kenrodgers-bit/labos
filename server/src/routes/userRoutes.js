@@ -1,12 +1,18 @@
 import express from 'express';
 import { body } from 'express-validator';
-import { createUser, listUsers, resetPassword, updateUser } from '../controllers/userController.js';
+import { changePassword } from '../controllers/authController.js';
+import { createUser, deleteUser, listUsers, resetPassword, updateUser } from '../controllers/userController.js';
 import { asyncHandler } from '../middleware/asyncHandler.js';
 import { authorize, protect } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
 import { ROLES } from '../utils/permissions.js';
 
 const router = express.Router();
+router.put('/me/password', protect, [
+  body('currentPassword').notEmpty().withMessage('Current password is required.'),
+  body('newPassword').isLength({ min: 8, max: 128 }).withMessage('New password must be between 8 and 128 characters.')
+], validate, asyncHandler(changePassword)); // LabOS fix: every authenticated user can change their own password at the required endpoint.
+
 router.use(protect, authorize(ROLES.ADMIN));
 router.get('/', asyncHandler(listUsers));
 router.post('/', [
@@ -25,5 +31,6 @@ router.put('/:id', [
 router.patch('/:id/password', [
   body('password').isLength({ min: 8, max: 128 }).withMessage('Password must be between 8 and 128 characters.')
 ], validate, asyncHandler(resetPassword));
+router.delete('/:id', asyncHandler(deleteUser)); // LabOS fix: Admin can delete Staff accounts through a protected API route.
 
 export default router;

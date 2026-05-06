@@ -32,6 +32,13 @@ export function AuthProvider({ children }) {
     return () => window.removeEventListener('labos:unauthorized', logout);
   }, []);
 
+  useEffect(() => {
+    if (!token) return;
+    api.get('/auth/me')
+      .then(({ data }) => updateUser(data.user))
+      .catch(() => {});
+  }, [token]); // LabOS fix: refresh the signed-in user so migrated roles replace stale localStorage values.
+
   const value = useMemo(() => ({ user, token, login, logout, updateUser, isAuthenticated: Boolean(token) }), [user, token]);
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

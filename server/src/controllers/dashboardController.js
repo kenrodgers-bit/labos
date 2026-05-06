@@ -1,6 +1,7 @@
 import AuditLog from '../models/AuditLog.js';
 import InventoryItem from '../models/InventoryItem.js';
 import Request from '../models/Request.js';
+import StockRefillReminder from '../models/StockRefillReminder.js';
 import StockMovement from '../models/StockMovement.js';
 import User from '../models/User.js';
 import { ROLES } from '../utils/permissions.js';
@@ -15,16 +16,18 @@ function countByStatus(requests) {
 export async function dashboard(req, res) {
   const now = new Date();
   const expirySoon = new Date(now);
-  expirySoon.setDate(now.getDate() + 90);
+  expirySoon.setDate(now.getDate() + 30); // LabOS fix: dashboard expiry alerts use the required 30-day horizon.
+  const isAdmin = req.user.role === ROLES.ADMIN; // LabOS fix: dashboard payloads separate Admin oversight from Staff self-service.
   const requestQuery = req.user.role === ROLES.STAFF ? { requestedBy: req.user._id } : {};
 
-  const [items, requests, movements, audits, totalUsers, activeStaff] = await Promise.all([
+  const [items, requests, movements, audits, refillReminders, totalUsers, activeStaff] = await Promise.all([
     InventoryItem.find({ status: { $ne: 'inactive' } }).populate('departmentId'),
     Request.find(requestQuery).populate('itemId departmentId requestedBy approvedBy adjustedBy').sort({ createdAt: -1 }),
-    StockMovement.find().populate('itemId departmentId performedBy').sort({ date: -1 }).limit(12),
-    AuditLog.find().populate('performedBy targetUserId targetItemId targetRequestId departmentId userId').sort({ timestamp: -1 }).limit(8),
+    isAdmin ? StockMovement.find().populate('itemId departmentId performedBy').sort({ date: -1 }).limit(12) : Promise.resolve([]),
+    isAdmin ? AuditLog.find().populate('performedBy targetUserId targetItemId targetRequestId departmentId userId').sort({ timestamp: -1 }).limit(8) : Promise.resolve([]),
+    isAdmin ? StockRefillReminder.find({ status: 'open' }).populate('itemId requestedBy departmentId').sort({ createdAt: -1 }).limit(10) : Promise.resolve([]),
     User.countDocuments(),
-    User.countDocuments({ status: 'active' })
+    User.countDocuments({ status: 'active', role: ROLES.STAFF }) // LabOS fix: active staff excludes admin accounts.
   ]);
 
   const stockTotal = items.reduce((sum, item) => sum + item.quantity, 0);
@@ -54,9 +57,7 @@ export async function dashboard(req, res) {
   };
   const roleKpis = req.user.role === ROLES.ADMIN
     ? { totalUsers, activeStaff, ...commonKpis }
-    : req.user.role === ROLES.MANAGER
-      ? { pendingApprovals: statusCounts.pending || 0, lowStock: lowStock.length, outOfStock: outOfStock.length, recentDecisions: requests.filter((request) => request.status !== 'pending').length, stockMovements: movements.length }
-      : { myRequests: requests.length, pendingRequests: statusCounts.pending || 0, approvedRequests: statusCounts.approved || 0, rejectedRequests: statusCounts.rejected || 0, partialRequests: statusCounts.partially_approved || 0 };
+    : { myRequests: requests.length, pendingRequests: statusCounts.pending || 0, approvedRequests: statusCounts.approved || 0, rejectedRequests: statusCounts.rejected || 0, partialRequests: statusCounts.partially_approved || 0 }; // LabOS fix: staff dashboards are self-service only.
 
   res.json({
     role: req.user.role,
@@ -69,8 +70,9 @@ export async function dashboard(req, res) {
       ...lowStock.map((item) => ({ type: 'low_stock', message: `${item.name} is below threshold`, item })),
       ...expired.map((item) => ({ type: 'expired', message: `${item.name} has expired`, item })),
       ...expiringSoon.map((item) => ({ type: 'expiry', message: `${item.name} expires soon`, item })),
+      ...refillReminders.map((reminder) => ({ type: 'stock_refill_reminder', message: `${reminder.requestedBy?.name || 'Staff'} requested refill for ${reminder.itemId?.name || 'an item'}`, reminder })),
       ...requests.filter((request) => request.status === 'pending').map((request) => ({ type: 'pending', message: `${request.itemId?.name} awaiting approval`, request }))
-    ].slice(0, 20),
+    ].slice(0, 20), // LabOS fix: Admin dashboard includes Staff refill reminders alongside stock alerts.
     recentMovements: movements,
     recentAudits: audits,
     recentRequests: requests.slice(0, 8)

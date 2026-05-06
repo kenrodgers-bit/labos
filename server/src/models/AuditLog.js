@@ -7,6 +7,7 @@ const auditLogSchema = new mongoose.Schema({
   targetItemId: { type: mongoose.Schema.Types.ObjectId, ref: 'InventoryItem', index: true },
   targetRequestId: { type: mongoose.Schema.Types.ObjectId, ref: 'Request', index: true },
   departmentId: { type: mongoose.Schema.Types.ObjectId, ref: 'Department', index: true },
+  details: String, // LabOS fix: store human-readable audit context for accountability reports.
   before: mongoose.Schema.Types.Mixed,
   after: mongoose.Schema.Types.Mixed,
   ipAddress: String,

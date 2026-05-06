@@ -1,13 +1,13 @@
 export const ROLES = {
   ADMIN: 'admin',
-  MANAGER: 'commodity_manager',
-  STAFF: 'lab_staff'
+  // LabOS fix: keep the production role model to Admin and Staff only.
+  STAFF: 'staff'
 };
 
 export const defaultPermissions = {
   admin: ['*'],
-  commodity_manager: ['inventory:read', 'requests:read', 'requests:approve', 'reports:read', 'audit:read'],
-  lab_staff: ['inventory:read', 'requests:create', 'requests:own', 'reports:own']
+  // LabOS fix: staff are read/request-only and cannot access reports or audit logs.
+  staff: ['inventory:read', 'requests:create', 'requests:own']
 };
 
 export function hasPermission(user, permission) {

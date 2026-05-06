@@ -60,12 +60,12 @@ async function seed() {
   const byName = Object.fromEntries(departments.map((department) => [department.name, department]));
 
   const users = await User.create([
-    { name: 'Amina Otieno', email: 'admin@labos.local', passwordHash: seedPassword, role: ROLES.ADMIN, departmentId: byName.Haematology._id },
-    { name: 'Peter Mwangi', email: 'manager@labos.local', passwordHash: seedPassword, role: ROLES.MANAGER, departmentId: byName.Biochemistry._id },
+    { name: 'Amina Otieno', email: 'admin@labos.local', passwordHash: seedPassword, role: ROLES.ADMIN },
+    { name: 'Peter Mwangi', email: 'biochem.staff@labos.local', passwordHash: seedPassword, role: ROLES.STAFF, departmentId: byName.Biochemistry._id },
     { name: 'Grace Wanjiku', email: 'haem.staff@labos.local', passwordHash: seedPassword, role: ROLES.STAFF, departmentId: byName.Haematology._id },
     { name: 'Brian Kiptoo', email: 'micro.staff@labos.local', passwordHash: seedPassword, role: ROLES.STAFF, departmentId: byName.Microbiology._id },
     { name: 'Linet Achieng', email: 'phleb.staff@labos.local', passwordHash: seedPassword, role: ROLES.STAFF, departmentId: byName.Phlebotomy._id }
-  ]);
+  ]); // LabOS fix: seeded data contains only Admin and Staff roles, and admins have no department.
 
   const items = await InventoryItem.insertMany(itemSeed.map((item, index) => ({
     name: item[0],
@@ -89,8 +89,8 @@ async function seed() {
   })));
 
   const requests = await Request.insertMany([
-    { itemId: items[0]._id, requestedBy: users[2]._id, departmentId: byName.Haematology._id, requestedQuantity: 5, approvedQuantity: 5, status: 'approved', urgency: 'routine', approvedBy: users[1]._id, approvedAt: new Date() },
-    { itemId: items[1]._id, requestedBy: users[3]._id, departmentId: byName.Microbiology._id, requestedQuantity: 30, approvedQuantity: 18, status: 'partially_approved', urgency: 'critical', adjustedBy: users[1]._id, adjustmentReason: 'Issued available balance pending restock', approvedBy: users[1]._id, approvedAt: new Date() },
+    { itemId: items[0]._id, requestedBy: users[2]._id, departmentId: byName.Haematology._id, requestedQuantity: 5, approvedQuantity: 5, status: 'approved', urgency: 'routine', approvedBy: users[0]._id, approvedAt: new Date() },
+    { itemId: items[1]._id, requestedBy: users[3]._id, departmentId: byName.Microbiology._id, requestedQuantity: 30, approvedQuantity: 18, status: 'partially_approved', urgency: 'critical', adjustedBy: users[0]._id, adjustmentReason: 'Issued available balance pending restock', approvedBy: users[0]._id, approvedAt: new Date() },
     { itemId: items[4]._id, requestedBy: users[2]._id, departmentId: byName.Biochemistry._id, requestedQuantity: 3, status: 'pending', urgency: 'urgent' },
     { itemId: items[7]._id, requestedBy: users[4]._id, departmentId: byName.Phlebotomy._id, requestedQuantity: 20, status: 'pending', urgency: 'routine' }
   ]);

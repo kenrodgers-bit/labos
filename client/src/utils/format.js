@@ -6,10 +6,9 @@ export function formatDate(value) {
 export function roleLabel(role) {
   return {
     admin: 'Admin',
-    commodity_manager: 'Commodity Manager',
-    lab_staff: 'Lab Staff'
+    staff: 'Staff'
   }[role] || role;
-}
+} // LabOS fix: role labels expose only Admin and Staff.
 
 export function statusTone(status) {
   return {
@@ -22,7 +21,9 @@ export function statusTone(status) {
     available: 'bg-emerald-50 text-emerald-700',
     low_stock: 'bg-amber-50 text-amber-800',
     out_of_stock: 'bg-rose-50 text-rose-700',
+    stock_refill_reminder: 'bg-blue-50 text-blue-700', // LabOS fix: Admin dashboard can badge Staff refill reminders.
     expired: 'bg-rose-50 text-rose-700',
+    expiring_soon: 'bg-amber-50 text-amber-800', // LabOS fix: inventory can flag items expiring within 30 days.
     critical: 'bg-rose-50 text-rose-700',
     urgent: 'bg-amber-50 text-amber-800',
     routine: 'bg-slate-100 text-slate-600'

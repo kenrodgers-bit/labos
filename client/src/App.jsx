@@ -32,9 +32,9 @@ function Shell() {
   const page = useMemo(() => {
     if (active === 'inventory') return <Inventory user={user} />;
     if (active === 'requests') return <Requests user={user} />;
-    if (active === 'approvals') return <RoleBasedRoute roles={['admin', 'commodity_manager']}><Approvals /></RoleBasedRoute>;
-    if (active === 'reports') return <Reports />;
-    if (active === 'audit') return <RoleBasedRoute roles={['admin', 'commodity_manager']}><AuditLogs /></RoleBasedRoute>;
+    if (active === 'approvals') return <RoleBasedRoute roles={['admin']}><Approvals /></RoleBasedRoute>;
+    if (active === 'reports') return <RoleBasedRoute roles={['admin']}><Reports /></RoleBasedRoute>;
+    if (active === 'audit') return <RoleBasedRoute roles={['admin']}><AuditLogs /></RoleBasedRoute>; // LabOS fix: privileged pages are Admin-only in the client router.
     if (active === 'departments') return <RoleBasedRoute roles={['admin']}><Departments /></RoleBasedRoute>;
     if (active === 'users') return <RoleBasedRoute roles={['admin']}><Users /></RoleBasedRoute>;
     if (active === 'settings') return <Settings />;

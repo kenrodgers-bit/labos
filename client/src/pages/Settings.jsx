@@ -84,13 +84,17 @@ export default function Settings() {
       setError('New password and confirmation do not match.');
       return;
     }
+    if (passwordForm.newPassword.length < 8) {
+      setError('New password must be at least 8 characters.');
+      return;
+    } // LabOS fix: frontend enforces the required minimum before calling the API.
 
     setSavingPassword(true);
     try {
-      await api.patch('/auth/me/password', {
+      await api.put('/users/me/password', {
         currentPassword: passwordForm.currentPassword,
         newPassword: passwordForm.newPassword
-      });
+      }); // LabOS fix: password changes use the required all-users endpoint.
       setPasswordForm(emptyPasswordForm);
       toast?.pushToast('Password changed.');
     } catch (err) {
@@ -138,7 +142,8 @@ export default function Settings() {
 
           <dl className="mt-5 space-y-3 text-sm">
             <div className="flex justify-between gap-4"><dt className="font-bold text-slate-500">Role</dt><dd className="text-right text-slate-700">{roleLabel(user.role)}</dd></div>
-            <div className="flex justify-between gap-4"><dt className="font-bold text-slate-500">Department</dt><dd className="text-right text-slate-700">{user.departmentId?.name || 'Central Store'}</dd></div>
+            <div className="flex justify-between gap-4"><dt className="font-bold text-slate-500">Department</dt><dd className="text-right text-slate-700">{isAdmin ? '-' : user.departmentId?.name || 'Unassigned'}</dd></div>
+            {/* LabOS fix: admin profiles do not display a department assignment. */}
           </dl>
 
           <form onSubmit={submitProfile} className="mt-6 border-t border-slate-100 pt-5">

@@ -59,7 +59,8 @@ export default function Approvals() {
             <label className="block text-sm font-bold text-slate-700">Decision
               <select className="input mt-1" name="decision" defaultValue={decision.mode}>
                 <option value="approved">Approve full quantity</option>
-                <option value="partial">Approve partial quantity</option>
+                <option value="partial">Partial release</option>
+                {/* LabOS fix: reduced approvals are labeled as partial releases in the UI. */}
                 <option value="rejected">Reject request</option>
               </select>
             </label>
@@ -67,7 +68,7 @@ export default function Approvals() {
               <input className="input mt-1" name="approvedQuantity" type="number" min="1" max={decision.requestedQuantity} defaultValue={decision.requestedQuantity} />
             </label>
             <label className="block text-sm font-bold text-slate-700">Adjustment or rejection reason
-              <textarea className="input mt-1" name="adjustmentReason" rows="3" placeholder="Required for partial approvals and rejections" />
+              <textarea className="input mt-1" name="adjustmentReason" rows="3" placeholder="Required for partial releases and rejections" />
             </label>
             <div className="rounded-lg bg-slate-50 p-3 text-sm text-slate-600">Requested: <b>{decision.requestedQuantity}</b>. Stock reduces only after approval.</div>
             <div className="flex justify-end gap-3"><button type="button" className="btn-secondary" onClick={() => setDecision(null)}>Cancel</button><button className="btn-primary">Save decision</button></div>

@@ -17,15 +17,8 @@ Demo users are created only by the seed script and only when no users exist, unl
 
 ## Demo Guide
 
-Seeded first-time testing accounts:
-
-| Role | Email | Password |
-| --- | --- | --- |
-| Admin | `admin@labos.local` | `LabOS@12345` |
-| Commodity Manager | `manager@labos.local` | `LabOS@12345` |
-| Lab Staff | `haem.staff@labos.local` | `LabOS@12345` |
-
-Change these passwords before any real facility demonstration. Do not publish seeded credentials in the application UI.
+Seeded first-time testing credentials are intentionally not published in the web app UI or this online README. Use the offline demo guide or the controlled seed script for first-time testing details, then change passwords before any real facility demonstration.
+<!-- LabOS fix: remove public demo credentials from project-facing documentation. -->
 
 ## Quick Start
 
@@ -64,8 +57,8 @@ Change these passwords before any real facility demonstration. Do not publish se
 ## Role Capabilities
 
 - Admin: staff accounts, departments, system settings, inventory CRUD/deactivation, all request decisions, reports, audit logs, dashboards.
-- Commodity Manager: approval queue, stock alerts, reports, audit visibility.
-- Lab Staff: request commodities, view own request status, inventory visibility, profile/password settings.
+- Staff: request commodities, view own request status, read inventory, and update profile/password settings.
+<!-- LabOS fix: document only Admin and Staff roles. -->
 
 ## Security Notes
 
@@ -93,7 +86,8 @@ PDF and Excel exports are downloaded through authenticated API requests.
 
 ## LabOS Assist
 
-LabOS Assist is a built-in, authenticated help assistant inside the web app. It appears as a floating chat button for signed-in users and gives short, role-aware guidance for Admins, Commodity Managers, and Lab Staff.
+LabOS Assist is a built-in, authenticated help assistant inside the web app. It appears as a floating chat button for signed-in users and gives short, role-aware guidance for Admins and Staff.
+<!-- LabOS fix: assistant documentation follows the two-role model. -->
 
 It can help with:
 
@@ -172,6 +166,7 @@ For Vercel serverless API deployments, MongoDB Atlas must allow traffic from the
 ```bash
 npm run install:all
 npm run seed
+npm run migrate:roles
 npm run dev
 npm run build --prefix client
 npm start --prefix server

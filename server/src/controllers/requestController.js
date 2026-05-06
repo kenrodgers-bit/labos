@@ -24,11 +24,10 @@ export async function listRequests(req, res) {
 }
 
 export async function createRequest(req, res) {
+  if (req.user.role !== ROLES.STAFF) return res.status(403).json({ message: 'Only staff can submit inventory requests.' }); // LabOS fix: admins oversee requests but cannot submit their own stock requests.
   const item = await InventoryItem.findById(req.body.itemId);
   if (!item || item.status === 'inactive') return res.status(404).json({ message: 'Requested item is not available.' });
-  const departmentId = req.user.role === ROLES.STAFF
-    ? req.user.departmentId?._id || req.user.departmentId
-    : req.body.departmentId || req.user.departmentId?._id || req.user.departmentId;
+  const departmentId = req.user.departmentId?._id || req.user.departmentId; // LabOS fix: staff requests always use the signed-in staff department.
   if (!departmentId) return res.status(422).json({ message: 'A department is required before creating a request.' });
 
   const request = await Request.create({
@@ -39,7 +38,7 @@ export async function createRequest(req, res) {
     urgency: req.body.urgency || 'routine',
     notes: req.body.notes || ''
   });
-  await writeAudit({ action: 'request.created', performedBy: req.user._id, targetItemId: request.itemId, targetRequestId: request._id, departmentId, after: request, req });
+  await writeAudit({ action: 'request.created', performedBy: req.user._id, targetItemId: request.itemId, targetRequestId: request._id, departmentId, details: 'Staff submitted an inventory request', after: request, req }); // LabOS fix: request submission is captured in audit logs.
   res.status(201).json(await Request.findById(request._id).populate('itemId requestedBy departmentId'));
 }
 
@@ -63,8 +62,8 @@ export async function decideRequest(req, res) {
     request.approvedAt = new Date();
   } else {
     const qty = decision === 'approved' ? request.requestedQuantity : Number(approvedQuantity);
-    if (qty < 1 || qty > request.requestedQuantity) return res.status(422).json({ message: 'Approved quantity must be between 1 and requested quantity.' });
-    if (decision === 'partial' && !adjustmentReason.trim()) return res.status(422).json({ message: 'An adjustment reason is required for partial approvals.' });
+    if (!Number.isFinite(qty) || qty < 1 || qty > request.requestedQuantity) return res.status(422).json({ message: 'Approved quantity must be between 1 and requested quantity.' }); // LabOS fix: partial releases require a valid approved quantity before stock can change.
+    if (decision === 'partial' && !adjustmentReason.trim()) return res.status(422).json({ message: 'An adjustment reason is required for partial releases.' }); // LabOS fix: partial approvals are presented as partial releases.
     if (qty > item.quantity) return res.status(409).json({ message: `Insufficient stock. Available quantity is ${item.quantity}.` });
 
     item.quantity -= qty;
@@ -82,6 +81,6 @@ export async function decideRequest(req, res) {
 
   await request.save();
   const populated = await Request.findById(request._id).populate('itemId requestedBy departmentId adjustedBy approvedBy');
-  await writeAudit({ action: `request.${request.status}`, performedBy: req.user._id, targetItemId: item._id, targetRequestId: request._id, departmentId: request.departmentId, before, after: populated, req });
+  await writeAudit({ action: `request.${request.status}`, performedBy: req.user._id, targetItemId: item._id, targetRequestId: request._id, departmentId: request.departmentId, details: `Admin recorded request decision: ${request.status}`, before, after: populated, req }); // LabOS fix: approval, partial release, and rejection decisions include audit details.
   res.json(populated);
 }

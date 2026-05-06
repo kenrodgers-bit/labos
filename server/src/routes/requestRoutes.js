@@ -14,7 +14,7 @@ router.post('/', [
   body('requestedQuantity').isInt({ min: 1 }),
   body('urgency').optional().isIn(['routine', 'urgent', 'critical'])
 ], validate, asyncHandler(createRequest));
-router.patch('/:id/decision', authorize(ROLES.ADMIN, ROLES.MANAGER), [
+router.patch('/:id/decision', authorize(ROLES.ADMIN), [ // LabOS fix: Admin is the only privileged role allowed to decide requests.
   body('decision').isIn(['approved', 'rejected', 'partial']),
   body('approvedQuantity').optional().isInt({ min: 1 }),
   body('adjustmentReason').optional().trim().isLength({ max: 500 })

@@ -6,7 +6,7 @@ const reports = [
   ['Inventory report', '/reports/inventory', 'labos-inventory-report', 'Current stock, thresholds, expiry, suppliers, and locations.'],
   ['Low stock report', '/reports/low-stock', 'labos-low-stock-report', 'Items at or below configured minimum thresholds.'],
   ['Expiry report', '/reports/expiry', 'labos-expiry-report', 'Expired and soon-expiring laboratory commodities.'],
-  ['Request report', '/reports/requests', 'labos-request-report', 'Requested, approved, rejected, and partial approval history.'],
+  ['Request report', '/reports/requests', 'labos-request-report', 'Requested, approved, rejected, and partial release history.'], // LabOS fix: reporting language matches the request workflow.
   ['Usage report', '/reports/usage', 'labos-usage-report', 'Stock in, stock out, and adjustment movement register.'],
   ['Department usage report', '/reports/department-usage', 'labos-department-usage-report', 'Department-level commodity usage for internal review.'],
   ['Audit logs', '/reports/audit', 'labos-audit-log', 'Traceable system activity and approval changes.'],

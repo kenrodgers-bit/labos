@@ -1,5 +1,6 @@
-import { KeyRound, Plus, Search } from 'lucide-react';
+import { KeyRound, Plus, Search, Trash2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import ConfirmModal from '../components/ConfirmModal.jsx';
 import DataTable from '../components/DataTable.jsx';
 import Modal from '../components/Modal.jsx';
 import StatusBadge from '../components/StatusBadge.jsx';
@@ -8,7 +9,7 @@ import api from '../services/api.js';
 import { apiErrorMessage } from '../utils/errors.js';
 import { formatDate, roleLabel } from '../utils/format.js';
 
-const emptyStaff = { role: 'lab_staff', status: 'active', departmentId: '' };
+const emptyStaff = { role: 'staff', status: 'active', departmentId: '' }; // LabOS fix: new accounts default to the Staff role.
 
 export default function Users() {
   const toast = useToast();
@@ -16,6 +17,7 @@ export default function Users() {
   const [departments, setDepartments] = useState([]);
   const [editing, setEditing] = useState(null);
   const [resetting, setResetting] = useState(null);
+  const [deleting, setDeleting] = useState(null);
   const [filters, setFilters] = useState({ search: '', role: '', status: '', page: 1 });
   const [pagination, setPagination] = useState({ page: 1, pages: 1, total: 0 });
   const [loading, setLoading] = useState(false);
@@ -47,6 +49,7 @@ export default function Users() {
   async function save(event) {
     event.preventDefault();
     const payload = Object.fromEntries(new FormData(event.currentTarget));
+    if (payload.role === 'admin') delete payload.departmentId; // LabOS fix: admin accounts never submit department assignments.
     if (!payload.departmentId) delete payload.departmentId;
     try {
       if (editing?._id) await api.put(`/users/${editing._id}`, payload);
@@ -76,11 +79,27 @@ export default function Users() {
     }
   }
 
+  async function deleteStaffAccount() {
+    try {
+      await api.delete(`/users/${deleting._id}`);
+      setDeleting(null);
+      toast?.pushToast('Staff account deleted.');
+      load();
+    } catch (err) {
+      setError(apiErrorMessage(err, 'Staff account could not be deleted.'));
+    }
+  } // LabOS fix: Admin delete action calls the protected staff-delete API.
+
   function changePage(page) {
     const next = { ...filters, page };
     setFilters(next);
     load(next);
   }
+
+  function openEditor(row = emptyStaff) {
+    const role = row.role === 'admin' ? 'admin' : 'staff';
+    setEditing({ ...row, role, departmentId: role === 'admin' ? '' : row.departmentId?._id || row.departmentId || '' });
+  } // LabOS fix: edit forms normalize admin departments away and keep Staff department ids editable.
 
   return (
     <div className="space-y-5">
@@ -93,15 +112,14 @@ export default function Users() {
         <select className="input" value={filters.role} onChange={(event) => updateFilter('role', event.target.value)}>
           <option value="">All roles</option>
           <option value="admin">Admin</option>
-          <option value="commodity_manager">Commodity Manager</option>
-          <option value="lab_staff">Lab Staff</option>
+          <option value="staff">Staff</option>
         </select>
         <select className="input" value={filters.status} onChange={(event) => updateFilter('status', event.target.value)}>
           <option value="">All statuses</option>
           <option value="active">Active</option>
           <option value="inactive">Inactive</option>
         </select>
-        <button className="btn-primary" onClick={() => setEditing(emptyStaff)}><Plus size={18} /> Staff account</button>
+        <button className="btn-primary" onClick={() => openEditor()}><Plus size={18} /> Staff account</button>
       </div>
       <div className="panel overflow-hidden">
         <DataTable
@@ -112,13 +130,15 @@ export default function Users() {
             { key: 'name', label: 'Name' },
             { key: 'email', label: 'Email' },
             { key: 'role', label: 'Role', render: (row) => roleLabel(row.role) },
-            { key: 'department', label: 'Department', render: (row) => row.departmentId?.name || '-' },
+            { key: 'department', label: 'Department', render: (row) => row.role === 'admin' ? '-' : row.departmentId?.name || '-' },
             { key: 'status', label: 'Status', render: (row) => <StatusBadge value={row.status} /> },
             { key: 'createdAt', label: 'Created', render: (row) => formatDate(row.createdAt) },
             { key: 'actions', label: '', render: (row) => (
               <div className="flex gap-2">
-                <button className="btn-secondary !py-1.5" onClick={() => setEditing({ ...row, departmentId: row.departmentId?._id || '' })}>Edit</button>
+                <button className="btn-secondary !py-1.5" onClick={() => openEditor(row)}>Edit</button>
                 <button className="btn-secondary !py-1.5" onClick={() => setResetting(row)}><KeyRound size={15} /> Reset</button>
+                {row.role === 'staff' && <button className="btn-secondary !py-1.5 text-rose-600" onClick={() => setDeleting(row)}><Trash2 size={15} /> Delete</button>}
+                {/* LabOS fix: only Staff rows expose delete; Admin rows cannot be deleted here. */}
               </div>
             ) }
           ]}
@@ -131,8 +151,9 @@ export default function Users() {
           <form onSubmit={save} className="grid gap-4 sm:grid-cols-2">
             <label className="text-sm font-bold text-slate-700">Name<input className="input mt-1" name="name" defaultValue={editing.name || ''} required /></label>
             <label className="text-sm font-bold text-slate-700">Email<input className="input mt-1" name="email" type="email" defaultValue={editing.email || ''} required /></label>
-            <label className="text-sm font-bold text-slate-700">Role<select className="input mt-1" name="role" defaultValue={editing.role}><option value="admin">Admin</option><option value="commodity_manager">Commodity Manager</option><option value="lab_staff">Lab Staff</option></select></label>
-            <label className="text-sm font-bold text-slate-700">Department<select className="input mt-1" name="departmentId" defaultValue={editing.departmentId || ''}><option value="">Unassigned</option>{departments.map((department) => <option key={department._id} value={department._id}>{department.name}</option>)}</select></label>
+            <label className="text-sm font-bold text-slate-700">Role<select className="input mt-1" name="role" value={editing.role} onChange={(event) => setEditing((current) => ({ ...current, role: event.target.value, departmentId: event.target.value === 'admin' ? '' : current.departmentId }))}><option value="admin">Admin</option><option value="staff">Staff</option></select></label>
+            {editing.role !== 'admin' && <label className="text-sm font-bold text-slate-700">Department<select className="input mt-1" name="departmentId" value={editing.departmentId || ''} onChange={(event) => setEditing((current) => ({ ...current, departmentId: event.target.value }))}><option value="">Unassigned</option>{departments.map((department) => <option key={department._id} value={department._id}>{department.name}</option>)}</select></label>}
+            {/* LabOS fix: department input is hidden whenever the selected role is Admin. */}
             <label className="text-sm font-bold text-slate-700">Status<select className="input mt-1" name="status" defaultValue={editing.status || 'active'}><option value="active">Active</option><option value="inactive">Inactive</option></select></label>
             {!editing._id && <label className="text-sm font-bold text-slate-700">Temporary password<input className="input mt-1" name="password" type="password" minLength={8} required /></label>}
             <div className="flex justify-end gap-3 sm:col-span-2"><button type="button" className="btn-secondary" onClick={() => setEditing(null)}>Cancel</button><button className="btn-primary">Save account</button></div>
@@ -147,6 +168,15 @@ export default function Users() {
             <div className="flex justify-end gap-3"><button type="button" className="btn-secondary" onClick={() => setResetting(null)}>Cancel</button><button className="btn-primary">Reset password</button></div>
           </form>
         </Modal>
+      )}
+      {deleting && (
+        <ConfirmModal
+          title="Delete staff account"
+          message={`Delete ${deleting.name}? The account will be removed from staff management and blocked from signing in, while historical requests and audit logs remain intact.`}
+          confirmLabel="Delete account"
+          onCancel={() => setDeleting(null)}
+          onConfirm={deleteStaffAccount}
+        />
       )}
     </div>
   );

@@ -15,11 +15,12 @@ export default function Requests({ user }) {
   const [open, setOpen] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const isStaff = user.role === 'staff'; // LabOS fix: only Staff can submit requests.
 
   async function load() {
     setLoading(true);
     try {
-      const [reqRes, itemRes] = await Promise.all([api.get('/requests', { params: { mine: user.role === 'lab_staff' } }), api.get('/inventory', { params: { status: 'active', limit: 100 } })]);
+      const [reqRes, itemRes] = await Promise.all([api.get('/requests', { params: { mine: isStaff } }), api.get('/inventory', { params: { status: 'active', limit: 100 } })]);
       setRequests(reqRes.data);
       setItems(itemRes.data.items || []);
       setError('');
@@ -46,7 +47,8 @@ export default function Requests({ user }) {
   return (
     <div className="space-y-5">
       {error && <div className="rounded-lg bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">{error}</div>}
-      <div className="flex justify-end"><button className="btn-primary" onClick={() => setOpen(true)}><Plus size={18} /> New request</button></div>
+      {isStaff && <div className="flex justify-end"><button className="btn-primary" onClick={() => setOpen(true)}><Plus size={18} /> New request</button></div>}
+      {/* LabOS fix: Admin can oversee requests here but cannot submit a personal inventory request. */}
       <div className="panel overflow-hidden">
         <DataTable columns={[
           { key: 'item', label: 'Item', render: (row) => row.itemId?.name },
@@ -67,7 +69,7 @@ export default function Requests({ user }) {
             </label>
             <label className="block text-sm font-bold text-slate-700">Quantity<input className="input mt-1" type="number" min="1" name="requestedQuantity" required /></label>
             <label className="block text-sm font-bold text-slate-700">Urgency<select className="input mt-1" name="urgency"><option value="routine">Routine</option><option value="urgent">Urgent</option><option value="critical">Critical</option></select></label>
-            <label className="block text-sm font-bold text-slate-700">Notes<textarea className="input mt-1" name="notes" rows="3" /></label>
+            <label className="block text-sm font-bold text-slate-700">Justification<textarea className="input mt-1" name="notes" rows="3" /></label>
             <div className="flex justify-end gap-3"><button type="button" className="btn-secondary" onClick={() => setOpen(false)}>Cancel</button><button className="btn-primary">Submit request</button></div>
           </form>
         </Modal>
