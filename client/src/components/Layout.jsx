@@ -26,7 +26,8 @@ export default function Layout({ active, setActive, alerts, children }) {
   const Sidebar = () => (
     <aside className="flex h-full w-72 flex-col border-r border-slate-200 bg-white">
       <div className="flex h-20 items-center gap-3 border-b border-slate-100 px-5">
-        <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-clinic-teal text-lg font-black text-white">L</div>
+        <img src="/labos-mark.png" alt="LabOS mark" className="h-11 w-11 rounded-xl object-cover shadow-sm" />
+        {/* LabOS fix: replace the placeholder sidebar badge with the supplied LabOS brand mark. */}
         <div>
           <p className="text-xl font-black tracking-tight text-clinic-ink">LabOS</p>
           <p className="text-xs font-semibold text-slate-500">Laboratory inventory</p>
