@@ -4,7 +4,7 @@ import Request from '../models/Request.js';
 import StockRefillReminder from '../models/StockRefillReminder.js';
 import StockMovement from '../models/StockMovement.js';
 import User from '../models/User.js';
-import { ROLES } from '../utils/permissions.js';
+import { isStaffRole, normalizedRole, ROLES } from '../utils/permissions.js';
 
 function countByStatus(requests) {
   return requests.reduce((acc, request) => {
@@ -18,7 +18,7 @@ export async function dashboard(req, res) {
   const expirySoon = new Date(now);
   expirySoon.setDate(now.getDate() + 30); // LabOS fix: dashboard expiry alerts use the required 30-day horizon.
   const isAdmin = req.user.role === ROLES.ADMIN; // LabOS fix: dashboard payloads separate Admin oversight from Staff self-service.
-  const requestQuery = req.user.role === ROLES.STAFF ? { requestedBy: req.user._id } : {};
+  const requestQuery = isStaffRole(req.user.role) ? { requestedBy: req.user._id } : {};
 
   const [items, requests, movements, audits, refillReminders, totalUsers, activeStaff] = await Promise.all([
     InventoryItem.find({ status: { $ne: 'inactive' } }).populate('departmentId'),
@@ -60,7 +60,7 @@ export async function dashboard(req, res) {
     : { myRequests: requests.length, pendingRequests: statusCounts.pending || 0, approvedRequests: statusCounts.approved || 0, rejectedRequests: statusCounts.rejected || 0, partialRequests: statusCounts.partially_approved || 0 }; // LabOS fix: staff dashboards are self-service only.
 
   res.json({
-    role: req.user.role,
+    role: normalizedRole(req.user.role),
     kpis: roleKpis,
     statusCounts,
     stockByDepartment: Object.entries(stockByDepartment).map(([name, quantity]) => ({ name, quantity })),

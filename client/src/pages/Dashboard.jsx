@@ -14,11 +14,16 @@ import {
   ShieldCheck,
   Users
 } from 'lucide-react';
+import { useState } from 'react';
 import { Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import EmptyState from '../components/EmptyState.jsx';
 import LoadingSpinner from '../components/LoadingSpinner.jsx';
 import StatusBadge from '../components/StatusBadge.jsx';
+import { useToast } from '../components/ToastProvider.jsx';
+import api from '../services/api.js';
+import { apiErrorMessage } from '../utils/errors.js';
 import { formatDate } from '../utils/format.js';
+import { normalizedRole } from '../utils/roles.js';
 
 const tooltipStyle = {
   backgroundColor: '#ffffff',
@@ -88,7 +93,7 @@ function toDateValue(value) {
 }
 
 function getRequestNotification(request, role) {
-  if (role === 'admin') {
+  if (normalizedRole(role) === 'admin') {
     return {
       id: `request-${request._id}`,
       type: request.status,
@@ -117,6 +122,7 @@ function getRequestNotification(request, role) {
 function getAlertNotification(alert) {
   return {
     id: alert.request?._id ? `request-${alert.request._id}` : `alert-${alert.type}-${alert.item?._id || alert.reminder?._id || alert.message}`,
+    reminderId: alert.reminder?._id,
     type: alert.type,
     title: alert.message,
     detail: alert.request?.departmentId?.name || alert.reminder?.departmentId?.name || alert.item?.departmentId?.name || 'Laboratory inventory',
@@ -135,7 +141,7 @@ function getAuditNotification(audit) {
 }
 
 function buildNotifications(data, user) {
-  const role = user?.role || data?.role;
+  const role = normalizedRole(user?.role || data?.role);
   const notifications = [
     ...(data.recentRequests || []).map((request) => getRequestNotification(request, role)),
     ...(data.alerts || []).map(getAlertNotification),
@@ -163,7 +169,7 @@ function getNotificationIcon(type) {
 }
 
 function buildActivityRows(data, user) {
-  if (user?.role === 'admin') {
+  if (normalizedRole(user?.role) === 'admin') {
     return (data.recentAudits || []).map((audit) => ({
       id: audit._id,
       title: audit.action,
@@ -200,7 +206,9 @@ function StatCard({ label, value, Icon, iconWrap }) {
   );
 }
 
-export default function Dashboard({ data, user, onNavigate }) {
+export default function Dashboard({ data, user, onNavigate, onRefresh }) {
+  const toast = useToast();
+  const [resolvingReminder, setResolvingReminder] = useState('');
   if (!data) return <LoadingSpinner label="Loading dashboard" />;
 
   const kpis = kpiOrder
@@ -209,8 +217,9 @@ export default function Dashboard({ data, user, onNavigate }) {
   const statusRows = Object.entries(data.statusCounts || {}).map(([name, value]) => ({ name, value }));
   const notifications = buildNotifications(data, user);
   const activityRows = buildActivityRows(data, user).slice(0, 5);
-  const quickActions = roleQuickActions[user?.role || 'staff'] || [];
-  const summaryCards = user?.role === 'admin'
+  const role = normalizedRole(user?.role || data.role || 'staff');
+  const quickActions = roleQuickActions[role] || [];
+  const summaryCards = role === 'admin'
     ? [
         { label: 'Open alerts', value: data.alerts?.length || 0 },
         { label: 'Pending requests', value: data.kpis?.pending || 0 },
@@ -221,7 +230,20 @@ export default function Dashboard({ data, user, onNavigate }) {
         { label: 'Approved requests', value: data.kpis?.approvedRequests || 0 },
         { label: 'Partial releases', value: data.kpis?.partialRequests || 0 }
       ];
-  const activityTitle = user?.role === 'admin' ? 'Recent oversight activity' : 'My latest request updates';
+  const activityTitle = role === 'admin' ? 'Recent oversight activity' : 'My latest request updates';
+
+  async function resolveReminder(reminderId) {
+    setResolvingReminder(reminderId);
+    try {
+      await api.patch(`/inventory/refill-reminders/${reminderId}/resolve`);
+      toast?.pushToast('Refill reminder resolved.');
+      await onRefresh?.();
+    } catch (err) {
+      toast?.pushToast(apiErrorMessage(err, 'Refill reminder could not be resolved.'), 'error');
+    } finally {
+      setResolvingReminder('');
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -268,9 +290,19 @@ export default function Dashboard({ data, user, onNavigate }) {
                       <p className="text-lg font-semibold leading-7 text-clinic-ink">{item.title}</p>
                       <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-slate-500">
                         <span>{item.detail}</span>
-                        <span className="hidden text-slate-300 sm:inline">•</span>
+                        <span className="hidden text-slate-300 sm:inline">|</span>
                         <span>{item.timestamp ? formatDate(item.timestamp) : 'Awaiting timestamp'}</span>
                       </div>
+                      {role === 'admin' && item.type === 'stock_refill_reminder' && item.reminderId && (
+                        <button
+                          type="button"
+                          className="btn-secondary mt-4 !py-1.5 text-sm"
+                          disabled={resolvingReminder === item.reminderId}
+                          onClick={() => resolveReminder(item.reminderId)}
+                        >
+                          Resolve
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -391,7 +423,7 @@ export default function Dashboard({ data, user, onNavigate }) {
             <div className="flex items-center justify-between gap-3">
               <div>
                 <p className="text-xs font-bold uppercase tracking-[0.24em] text-slate-500">Request mix</p>
-                <h2 className="mt-2 text-2xl font-black text-clinic-ink">{user?.role === 'admin' ? 'Request decisions' : 'My request outcomes'}</h2>
+                <h2 className="mt-2 text-2xl font-black text-clinic-ink">{role === 'admin' ? 'Request decisions' : 'My request outcomes'}</h2>
               </div>
             </div>
             <div className="mt-5 h-72">
@@ -421,7 +453,7 @@ export default function Dashboard({ data, user, onNavigate }) {
               {activityRows.length === 0 && (
                 <EmptyState
                   title="No recent activity"
-                  message={user?.role === 'admin' ? 'Approval and audit activity will appear here.' : 'Your latest request updates will appear here.'}
+                  message={role === 'admin' ? 'Approval and audit activity will appear here.' : 'Your latest request updates will appear here.'}
                 />
               )}
 

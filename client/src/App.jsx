@@ -38,7 +38,7 @@ function Shell() {
     if (active === 'departments') return <RoleBasedRoute roles={['admin']}><Departments /></RoleBasedRoute>;
     if (active === 'users') return <RoleBasedRoute roles={['admin']}><Users /></RoleBasedRoute>;
     if (active === 'settings') return <Settings />;
-    return <Dashboard data={dashboard} user={user} onNavigate={setActive} />; // LabOS fix: dashboard quick actions now use the real app router instead of static UI.
+    return <Dashboard data={dashboard} user={user} onNavigate={setActive} onRefresh={loadDashboard} />; // LabOS fix: dashboard quick actions now use the real app router instead of static UI.
   }, [active, dashboard, user]);
 
   return (

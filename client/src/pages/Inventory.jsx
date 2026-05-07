@@ -8,6 +8,7 @@ import { useToast } from '../components/ToastProvider.jsx';
 import api from '../services/api.js';
 import { apiErrorMessage } from '../utils/errors.js';
 import { formatDate } from '../utils/format.js';
+import { isStaffRole } from '../utils/roles.js';
 
 const emptyItem = { name: '', category: '', unit: '', quantity: 0, minThreshold: 0, expiryDate: '', supplier: '', location: '', departmentId: '', status: 'active' };
 
@@ -97,7 +98,7 @@ export default function Inventory({ user }) {
   } // LabOS fix: Staff can remind Admin about stock refill needs from inventory.
 
   const canEdit = user.role === 'admin';
-  const canSendRefillReminder = user.role === 'staff';
+  const canSendRefillReminder = isStaffRole(user.role);
   const pagination = { page: data.page, pages: data.pages, total: data.total };
   return (
     <div className="space-y-5">

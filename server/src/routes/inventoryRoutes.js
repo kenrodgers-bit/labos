@@ -1,6 +1,6 @@
 import express from 'express';
 import { body } from 'express-validator';
-import { createItem, deleteItem, listItems, sendRefillReminder, updateItem } from '../controllers/inventoryController.js';
+import { createItem, deleteItem, listItems, resolveRefillReminder, sendRefillReminder, updateItem } from '../controllers/inventoryController.js';
 import { asyncHandler } from '../middleware/asyncHandler.js';
 import { authorize, protect } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
@@ -12,6 +12,7 @@ router.get('/', asyncHandler(listItems));
 router.post('/:id/refill-reminder', authorize(ROLES.STAFF), [
   body('note').optional().trim().isLength({ max: 500 }).withMessage('Reminder note must be 500 characters or fewer.')
 ], validate, asyncHandler(sendRefillReminder)); // LabOS fix: Staff can send Admin stock-refill reminders from inventory.
+router.patch('/refill-reminders/:id/resolve', authorize(ROLES.ADMIN), asyncHandler(resolveRefillReminder));
 router.post('/', authorize(ROLES.ADMIN), [
   body('name').notEmpty(),
   body('category').notEmpty(),

@@ -7,6 +7,7 @@ import { useToast } from '../components/ToastProvider.jsx';
 import api from '../services/api.js';
 import { apiErrorMessage } from '../utils/errors.js';
 import { formatDate } from '../utils/format.js';
+import { isStaffRole } from '../utils/roles.js';
 
 export default function Requests({ user }) {
   const toast = useToast();
@@ -15,7 +16,7 @@ export default function Requests({ user }) {
   const [open, setOpen] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const isStaff = user.role === 'staff'; // LabOS fix: only Staff can submit requests.
+  const isStaff = isStaffRole(user.role); // LabOS fix: only Staff can submit requests.
 
   async function load() {
     setLoading(true);

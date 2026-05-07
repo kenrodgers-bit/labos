@@ -1,14 +1,24 @@
 import { jsPDF } from 'jspdf';
 import autoTableModule from 'jspdf-autotable';
-import XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 
 const autoTable = autoTableModule.default || autoTableModule;
 
-export function sendExcel(res, filename, rows) {
-  const workbook = XLSX.utils.book_new();
-  const worksheet = XLSX.utils.json_to_sheet(rows);
-  XLSX.utils.book_append_sheet(workbook, worksheet, 'LabOS');
-  const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+export async function sendExcel(res, filename, rows) {
+  const workbook = new ExcelJS.Workbook();
+  workbook.creator = 'LabOS';
+  const worksheet = workbook.addWorksheet('LabOS');
+  const columns = Object.keys(rows[0] || { Notice: 'No records matched this report.' });
+
+  worksheet.columns = columns.map((key) => ({
+    header: key,
+    key,
+    width: Math.min(Math.max(key.length + 4, 14), 36)
+  }));
+  rows.forEach((row) => worksheet.addRow(row));
+  worksheet.getRow(1).font = { bold: true };
+
+  const buffer = Buffer.from(await workbook.xlsx.writeBuffer());
   res.setHeader('Content-Disposition', `attachment; filename="${filename}.xlsx"`);
   res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
   res.send(buffer);

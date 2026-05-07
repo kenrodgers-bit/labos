@@ -2,7 +2,7 @@ import InventoryItem from '../models/InventoryItem.js';
 import StockRefillReminder from '../models/StockRefillReminder.js';
 import StockMovement from '../models/StockMovement.js';
 import { writeAudit } from '../utils/audit.js';
-import { ROLES } from '../utils/permissions.js';
+import { isStaffRole } from '../utils/permissions.js';
 
 function itemPayload(body) {
   return {
@@ -21,6 +21,27 @@ function itemPayload(body) {
 
 function compactObject(value) {
   return Object.fromEntries(Object.entries(value).filter(([, entry]) => entry !== undefined));
+}
+
+async function resolveOpenRefillRemindersForItem({ item, performedBy, req, details }) {
+  const openReminders = await StockRefillReminder.find({ itemId: item._id, status: 'open' });
+  if (!openReminders.length) return;
+
+  const resolvedAt = new Date();
+  await StockRefillReminder.updateMany(
+    { _id: { $in: openReminders.map((reminder) => reminder._id) } },
+    { $set: { status: 'resolved', resolvedAt, resolvedBy: performedBy } }
+  );
+
+  await writeAudit({
+    action: 'stock_refill.resolved',
+    performedBy,
+    targetItemId: item._id,
+    departmentId: item.departmentId,
+    details,
+    after: { item: item.name, resolvedReminders: openReminders.length },
+    req
+  });
 }
 
 export async function listItems(req, res) {
@@ -87,6 +108,14 @@ export async function updateItem(req, res) {
 
   const populated = await InventoryItem.findById(item._id).populate('departmentId');
   await writeAudit({ action: 'inventory.updated', performedBy: req.user._id, targetItemId: item._id, details: 'Admin updated inventory item', before, after: populated, req }); // LabOS fix: inventory edits remain accountable.
+  if (item.quantity > item.minThreshold || item.status === 'inactive') {
+    await resolveOpenRefillRemindersForItem({
+      item,
+      performedBy: req.user._id,
+      req,
+      details: 'Admin resolved open refill reminders by updating item stock/status'
+    });
+  }
   res.json(populated);
 }
 
@@ -99,21 +128,39 @@ export async function deleteItem(req, res) {
   item.deactivatedBy = req.user._id;
   await item.save();
   await writeAudit({ action: 'inventory.deactivated', performedBy: req.user._id, targetItemId: item._id, details: 'Admin deactivated inventory item', before, after: item, req }); // LabOS fix: soft deletes are auditable.
+  await resolveOpenRefillRemindersForItem({
+    item,
+    performedBy: req.user._id,
+    req,
+    details: 'Admin resolved open refill reminders by deactivating the item'
+  });
   res.json({ message: 'Item deactivated', item });
 }
 
 export async function sendRefillReminder(req, res) {
-  if (req.user.role !== ROLES.STAFF) return res.status(403).json({ message: 'Only staff can send refill reminders.' });
+  if (!isStaffRole(req.user.role)) return res.status(403).json({ message: 'Only staff can send refill reminders.' });
   const item = await InventoryItem.findById(req.params.id).populate('departmentId');
   if (!item || item.status === 'inactive') return res.status(404).json({ message: 'Inventory item is not available.' });
+  if (item.quantity > item.minThreshold) return res.status(409).json({ message: 'Refill reminders are only available for low-stock or out-of-stock items.' });
 
   const departmentId = req.user.departmentId?._id || req.user.departmentId || item.departmentId?._id || item.departmentId;
-  const reminder = await StockRefillReminder.create({
-    itemId: item._id,
-    requestedBy: req.user._id,
-    departmentId,
-    note: req.body.note || ''
-  }); // LabOS fix: refill reminder is stored as a real workflow record for Admin follow-up.
+  const reminderQuery = { itemId: item._id, requestedBy: req.user._id, status: 'open' };
+  if (departmentId) reminderQuery.departmentId = departmentId;
+  else reminderQuery.departmentId = { $exists: false };
+
+  let reminder = await StockRefillReminder.findOne(reminderQuery);
+  const wasExisting = Boolean(reminder);
+  if (reminder) {
+    reminder.note = req.body.note || '';
+    await reminder.save();
+  } else {
+    reminder = await StockRefillReminder.create({
+      itemId: item._id,
+      requestedBy: req.user._id,
+      departmentId,
+      note: req.body.note || ''
+    });
+  }
 
   await writeAudit({
     action: 'stock_refill.reminded',
@@ -125,5 +172,30 @@ export async function sendRefillReminder(req, res) {
     req
   }); // LabOS fix: refill reminders are traceable in audit logs and filing reports.
 
-  res.status(201).json({ message: 'Refill reminder sent to Admin.', reminder: await StockRefillReminder.findById(reminder._id).populate('itemId requestedBy departmentId') });
+  res.status(wasExisting ? 200 : 201).json({
+    message: wasExisting ? 'Open refill reminder updated.' : 'Refill reminder sent to Admin.',
+    reminder: await StockRefillReminder.findById(reminder._id).populate('itemId requestedBy departmentId')
+  });
+}
+
+export async function resolveRefillReminder(req, res) {
+  const reminder = await StockRefillReminder.findOne({ _id: req.params.id, status: 'open' }).populate('itemId requestedBy departmentId');
+  if (!reminder) return res.status(404).json({ message: 'Open refill reminder not found.' });
+
+  reminder.status = 'resolved';
+  reminder.resolvedAt = new Date();
+  reminder.resolvedBy = req.user._id;
+  await reminder.save();
+
+  await writeAudit({
+    action: 'stock_refill.resolved',
+    performedBy: req.user._id,
+    targetItemId: reminder.itemId?._id || reminder.itemId,
+    departmentId: reminder.departmentId?._id || reminder.departmentId,
+    details: 'Admin resolved a staff refill reminder',
+    after: { reminderId: reminder._id, item: reminder.itemId?.name || '', requestedBy: reminder.requestedBy?.name || '' },
+    req
+  });
+
+  res.json({ message: 'Refill reminder resolved.', reminder });
 }

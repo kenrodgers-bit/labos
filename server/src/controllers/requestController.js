@@ -2,13 +2,13 @@ import InventoryItem from '../models/InventoryItem.js';
 import Request from '../models/Request.js';
 import StockMovement from '../models/StockMovement.js';
 import { writeAudit } from '../utils/audit.js';
-import { ROLES } from '../utils/permissions.js';
+import { isStaffRole } from '../utils/permissions.js';
 
 export async function listRequests(req, res) {
   const { status, mine, page, limit } = req.query;
   const query = {
     ...(status ? { status } : {}),
-    ...((mine === 'true' || req.user.role === ROLES.STAFF) ? { requestedBy: req.user._id } : {})
+    ...((mine === 'true' || isStaffRole(req.user.role)) ? { requestedBy: req.user._id } : {})
   };
   const finder = Request.find(query).populate('itemId requestedBy departmentId adjustedBy approvedBy').sort({ createdAt: -1 });
   if (page || limit) {
@@ -24,10 +24,10 @@ export async function listRequests(req, res) {
 }
 
 export async function createRequest(req, res) {
-  if (req.user.role !== ROLES.STAFF) return res.status(403).json({ message: 'Only staff can submit inventory requests.' }); // LabOS fix: admins oversee requests but cannot submit their own stock requests.
+  if (!isStaffRole(req.user.role)) return res.status(403).json({ message: 'Only staff can submit inventory requests.' }); // LabOS fix: admins oversee requests but cannot submit their own stock requests.
   const item = await InventoryItem.findById(req.body.itemId);
   if (!item || item.status === 'inactive') return res.status(404).json({ message: 'Requested item is not available.' });
-  const departmentId = req.user.departmentId?._id || req.user.departmentId; // LabOS fix: staff requests always use the signed-in staff department.
+  const departmentId = req.user.departmentId?._id || req.user.departmentId || item.departmentId; // LabOS fix: staff requests prefer the signed-in department and fall back to the requested item's department.
   if (!departmentId) return res.status(422).json({ message: 'A department is required before creating a request.' });
 
   const request = await Request.create({

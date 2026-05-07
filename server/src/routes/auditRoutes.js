@@ -5,13 +5,14 @@ import StockMovement from '../models/StockMovement.js';
 import SystemSettings from '../models/SystemSettings.js';
 import { asyncHandler } from '../middleware/asyncHandler.js';
 import { authorize, protect } from '../middleware/auth.js';
+import { buildDateRange } from '../utils/dateRange.js';
 import { ROLES } from '../utils/permissions.js';
 
 const router = express.Router();
 router.use(protect, authorize(ROLES.ADMIN)); // LabOS fix: audit logs are admin-only.
 router.get('/', asyncHandler(async (req, res) => {
   const { search = '', action, from, to, page = 1, limit = 50 } = req.query;
-  const dateRange = from || to ? { ...(from ? { $gte: new Date(from) } : {}), ...(to ? { $lte: new Date(to) } : {}) } : null;
+  const dateRange = buildDateRange({ from, to });
   const query = {
     ...(action ? { action } : {}),
     ...(dateRange ? { timestamp: dateRange } : {})
