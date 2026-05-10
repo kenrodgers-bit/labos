@@ -4,7 +4,7 @@ import Request from '../models/Request.js';
 import StockRefillReminder from '../models/StockRefillReminder.js';
 import StockMovement from '../models/StockMovement.js';
 import User from '../models/User.js';
-import { isStaffRole, normalizedRole, ROLES } from '../utils/permissions.js';
+import { isStaffRole, normalizedRole, ROLES, STAFF_ROLE_VALUES } from '../utils/permissions.js';
 
 function countByStatus(requests) {
   return requests.reduce((acc, request) => {
@@ -27,7 +27,7 @@ export async function dashboard(req, res) {
     isAdmin ? AuditLog.find().populate('performedBy targetUserId targetItemId targetRequestId departmentId userId').sort({ timestamp: -1 }).limit(8) : Promise.resolve([]),
     isAdmin ? StockRefillReminder.find({ status: 'open' }).populate('itemId requestedBy departmentId').sort({ createdAt: -1 }).limit(10) : Promise.resolve([]),
     User.countDocuments(),
-    User.countDocuments({ status: 'active', role: ROLES.STAFF }) // LabOS fix: active staff excludes admin accounts.
+    User.countDocuments({ status: 'active', role: { $in: STAFF_ROLE_VALUES } }) // LabOS fix: active staff includes normalized legacy staff accounts and excludes admin accounts.
   ]);
 
   const stockTotal = items.reduce((sum, item) => sum + item.quantity, 0);

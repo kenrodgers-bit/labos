@@ -4,7 +4,10 @@ export const ROLES = {
   STAFF: 'staff'
 };
 
-const LEGACY_STAFF_ROLES = new Set(['lab_staff', 'commodity_manager']);
+const LEGACY_STAFF_ROLE_VALUES = ['lab_staff', 'commodity_manager'];
+const LEGACY_STAFF_ROLES = new Set(LEGACY_STAFF_ROLE_VALUES);
+
+export const STAFF_ROLE_VALUES = [ROLES.STAFF, ...LEGACY_STAFF_ROLE_VALUES];
 
 export function isStaffRole(role) {
   return role === ROLES.STAFF || LEGACY_STAFF_ROLES.has(role);

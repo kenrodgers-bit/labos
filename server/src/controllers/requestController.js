@@ -27,7 +27,7 @@ export async function createRequest(req, res) {
   if (!isStaffRole(req.user.role)) return res.status(403).json({ message: 'Only staff can submit inventory requests.' }); // LabOS fix: admins oversee requests but cannot submit their own stock requests.
   const item = await InventoryItem.findById(req.body.itemId);
   if (!item || item.status === 'inactive') return res.status(404).json({ message: 'Requested item is not available.' });
-  const departmentId = req.user.departmentId?._id || req.user.departmentId || item.departmentId; // LabOS fix: staff requests prefer the signed-in department and fall back to the requested item's department.
+  const departmentId = req.user.departmentId?._id || req.user.departmentId; // LabOS fix: staff requests must use the signed-in staff department.
   if (!departmentId) return res.status(422).json({ message: 'A department is required before creating a request.' });
 
   const request = await Request.create({

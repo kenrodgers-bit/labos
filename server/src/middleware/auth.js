@@ -1,6 +1,6 @@
 import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
-import { hasPermission } from '../utils/permissions.js';
+import { hasPermission, normalizedRole } from '../utils/permissions.js';
 
 export async function protect(req, res, next) {
   try {
@@ -20,7 +20,7 @@ export async function protect(req, res, next) {
 
 export function authorize(...roles) {
   return (req, res, next) => {
-    if (!roles.includes(req.user.role)) return res.status(403).json({ message: 'Insufficient role access' }); // LabOS fix: admin-only routes check role === 'admin' through explicit route role lists.
+    if (!roles.includes(normalizedRole(req.user?.role))) return res.status(403).json({ message: 'Insufficient role access' }); // LabOS fix: route role checks accept normalized legacy Staff roles while keeping Admin-only routes privileged.
     next();
   };
 }
