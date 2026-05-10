@@ -10,6 +10,7 @@ import AuditLogs from './pages/AuditLogs.jsx';
 import Dashboard from './pages/Dashboard.jsx';
 import Departments from './pages/Departments.jsx';
 import Inventory from './pages/Inventory.jsx';
+import LabReports from './pages/LabReports.jsx';
 import Login from './pages/Login.jsx';
 import Reports from './pages/Reports.jsx';
 import Requests from './pages/Requests.jsx';
@@ -31,6 +32,7 @@ function Shell() {
 
   const page = useMemo(() => {
     if (active === 'inventory') return <Inventory user={user} />;
+    if (active === 'lab-reports') return <LabReports user={user} />;
     if (active === 'requests') return <Requests user={user} />;
     if (active === 'approvals') return <RoleBasedRoute roles={['admin']}><Approvals /></RoleBasedRoute>;
     if (active === 'reports') return <RoleBasedRoute roles={['admin']}><Reports /></RoleBasedRoute>;

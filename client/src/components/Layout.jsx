@@ -1,14 +1,16 @@
 import { motion } from 'framer-motion';
-import { Bell, Boxes, Building2, ClipboardCheck, FileText, LayoutDashboard, LogOut, Menu, ScrollText, Settings, Shield, Users, X } from 'lucide-react';
+import { Bell, Boxes, Building2, ClipboardCheck, FileText, LayoutDashboard, LogOut, Menu, ScrollText, Settings, Shield, TestTube2, Users, X } from 'lucide-react';
 import { useState } from 'react';
 import { useAuth } from '../context/AuthContext.jsx';
 import { roleLabel } from '../utils/format.js';
+import { normalizedRole } from '../utils/roles.js';
 import LabOSAssist from './LabOSAssist.jsx';
 
 const nav = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { id: 'inventory', label: 'Inventory', icon: Boxes },
   { id: 'requests', label: 'Requests', icon: ClipboardCheck },
+  { id: 'lab-reports', label: 'MOH Lab Reports', icon: TestTube2, roles: ['admin', 'staff'] },
   { id: 'approvals', label: 'Approvals', icon: Shield, roles: ['admin'] },
   { id: 'reports', label: 'Reports', icon: FileText, roles: ['admin'] },
   { id: 'audit', label: 'Audit Logs', icon: ScrollText, roles: ['admin'] },
@@ -21,7 +23,8 @@ const nav = [
 export default function Layout({ active, setActive, alerts, children }) {
   const { user, logout } = useAuth();
   const [open, setOpen] = useState(false);
-  const visibleNav = nav.filter((item) => !item.roles || item.roles.includes(user.role));
+  const role = normalizedRole(user.role);
+  const visibleNav = nav.filter((item) => !item.roles || item.roles.includes(role));
 
   const Sidebar = () => (
     <aside className="flex h-full w-72 flex-col border-r border-slate-200 bg-white">

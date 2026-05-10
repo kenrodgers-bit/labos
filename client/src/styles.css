@@ -46,3 +46,28 @@ button, input, select, textarea {
     @apply inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold;
   }
 }
+
+@media print {
+  body {
+    background: #ffffff;
+  }
+
+  .moh-report-module {
+    color: #0f172a;
+  }
+
+  .moh-report-module table {
+    page-break-inside: auto;
+  }
+
+  .moh-report-module tr {
+    page-break-inside: avoid;
+    page-break-after: auto;
+  }
+
+  .moh-report-module input {
+    border: 0 !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+  }
+}
