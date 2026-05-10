@@ -51,6 +51,7 @@ export async function decideRequest(req, res) {
   const { decision, approvedQuantity, adjustmentReason = '' } = req.body;
   const item = await InventoryItem.findById(request.itemId);
   if (!item || item.status === 'inactive') return res.status(404).json({ message: 'Requested item is not available.' });
+  let stockRiskContext = null;
 
   if (decision === 'rejected') {
     if (!adjustmentReason.trim()) return res.status(422).json({ message: 'A rejection reason is required.' });
@@ -64,9 +65,21 @@ export async function decideRequest(req, res) {
     const qty = decision === 'approved' ? request.requestedQuantity : Number(approvedQuantity);
     if (!Number.isFinite(qty) || qty < 1 || qty > request.requestedQuantity) return res.status(422).json({ message: 'Approved quantity must be between 1 and requested quantity.' }); // LabOS fix: partial releases require a valid approved quantity before stock can change.
     if (decision === 'partial' && !adjustmentReason.trim()) return res.status(422).json({ message: 'An adjustment reason is required for partial releases.' }); // LabOS fix: partial approvals are presented as partial releases.
-    if (qty > item.quantity) return res.status(409).json({ message: `Insufficient stock. Available quantity is ${item.quantity}.` });
 
-    item.quantity -= qty;
+    const availableBeforeApproval = item.quantity;
+    const remainingQuantity = Math.max(0, availableBeforeApproval - qty);
+    const shortfall = Math.max(qty - availableBeforeApproval, 0);
+    if (remainingQuantity <= item.minThreshold) {
+      stockRiskContext = {
+        approvedQuantity: qty,
+        availableBeforeApproval,
+        remainingQuantity,
+        minThreshold: item.minThreshold,
+        shortfall
+      };
+    }
+
+    item.quantity = remainingQuantity;
     await item.save();
     request.status = qty === request.requestedQuantity ? 'approved' : 'partially_approved';
     request.approvedQuantity = qty;
@@ -76,11 +89,23 @@ export async function decideRequest(req, res) {
       request.adjustedBy = req.user._id;
       request.adjustmentReason = adjustmentReason.trim();
     }
-    await StockMovement.create({ itemId: item._id, type: 'out', quantity: qty, performedBy: req.user._id, departmentId: request.departmentId, notes: `Issued for request ${request._id}` });
+    await StockMovement.create({
+      itemId: item._id,
+      type: 'out',
+      quantity: qty,
+      performedBy: req.user._id,
+      departmentId: request.departmentId,
+      notes: stockRiskContext
+        ? `Issued for request ${request._id}; Admin accepted stock-out risk (available before approval: ${availableBeforeApproval}, remaining: ${remainingQuantity})`
+        : `Issued for request ${request._id}`
+    });
   }
 
   await request.save();
   const populated = await Request.findById(request._id).populate('itemId requestedBy departmentId adjustedBy approvedBy');
-  await writeAudit({ action: `request.${request.status}`, performedBy: req.user._id, targetItemId: item._id, targetRequestId: request._id, departmentId: request.departmentId, details: `Admin recorded request decision: ${request.status}`, before, after: populated, req }); // LabOS fix: approval, partial release, and rejection decisions include audit details.
+  const details = stockRiskContext
+    ? `Admin recorded request decision: ${request.status}; stock-out risk accepted (available before: ${stockRiskContext.availableBeforeApproval}, remaining: ${stockRiskContext.remainingQuantity}, threshold: ${stockRiskContext.minThreshold}, shortfall: ${stockRiskContext.shortfall})`
+    : `Admin recorded request decision: ${request.status}`;
+  await writeAudit({ action: `request.${request.status}`, performedBy: req.user._id, targetItemId: item._id, targetRequestId: request._id, departmentId: request.departmentId, details, before, after: stockRiskContext ? { request: populated, stockRisk: stockRiskContext } : populated, req }); // LabOS fix: approval, partial release, and rejection decisions include audit details.
   res.json(populated);
 }
